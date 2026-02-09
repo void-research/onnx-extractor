@@ -102,7 +102,7 @@ fn test_topological_order() {
 
 #[test]
 fn test_get_raw_data() {
-    let path = format!("{}/tests/mnist-12.onnx", env!("CARGO_MANIFEST_DIR"));
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     let weights = model.get_weight_tensors();
@@ -119,7 +119,7 @@ fn test_get_raw_data() {
 
 #[test]
 fn test_no_data_tensors_report_no_data() {
-    let path = format!("{}/tests/mnist-12.onnx", env!("CARGO_MANIFEST_DIR"));
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     let tensor = model
