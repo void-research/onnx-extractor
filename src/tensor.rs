@@ -32,7 +32,6 @@ impl<'a> TensorData<'a> {
     ///
     /// For Strings, returns sum of all string element bytes.
     /// If all Strings are empty, returns 0.
-    #[inline]
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
@@ -45,7 +44,6 @@ impl<'a> TensorData<'a> {
     ///
     /// For Raw and Numeric, equivalent to len equals zero.
     /// For Strings, checks if vector is empty. Empty strings are still elements.
-    #[inline]
     pub fn is_empty(&self) -> bool {
         match self {
             TensorData::Raw(b) => b.is_empty(),
@@ -59,7 +57,6 @@ impl<'a> TensorData<'a> {
     /// This consumes self and returns data with no borrowed references.
     /// Note that Numeric data will be copied if borrowed. For zero-copy owned data,
     /// use OnnxTensor::into_data instead.
-    #[inline]
     pub fn into_owned(self) -> TensorData<'static> {
         match self {
             TensorData::Raw(b) => TensorData::Raw(b),
@@ -72,7 +69,6 @@ impl<'a> TensorData<'a> {
     ///
     /// Raw and Numeric variants borrow directly. Strings with single element borrows,
     /// multiple elements concatenate into owned Vec.
-    #[inline]
     pub fn as_slice(&self) -> Cow<'_, [u8]> {
         match self {
             TensorData::Raw(b) => Cow::Borrowed(b.as_ref()),
@@ -174,7 +170,6 @@ impl OnnxTensor {
     /// Raw and Strings variants clone Arc pointers only, Numeric borrows directly.
     /// Call into_owned on the result to detach from tensor lifetime.
     /// For external data, this lazily loads the data from the external file.
-    #[inline]
     pub fn data(&self) -> Result<TensorData<'_>, Error> {
         // Check if data is stored externally
         if let Some(TensorDataLocation::External(ref external_info)) = self.data_location {
@@ -235,7 +230,6 @@ impl OnnxTensor {
     /// All variants returned with no borrowed references.
     /// Numeric performs zero-copy reinterpretation from typed fields.
     /// For external data, this lazily loads the data from the external file.
-    #[inline]
     pub fn into_data(mut self) -> Result<TensorData<'static>, Error> {
         // Check if data is stored externally
         if let Some(TensorDataLocation::External(ref external_info)) = self.data_location {
