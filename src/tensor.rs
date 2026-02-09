@@ -10,10 +10,14 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub(crate) enum TensorDataLocation {
-    /// Data is stored internally in the protobuf (raw_data or typed fields)
-    Internal,
+    /// Data is stored in typed numeric proto fields (float_data, int32_data, etc.)
+    TypedField,
     /// Data is stored in an external file
     External(ExternalDataInfo),
+    /// Raw data as a Bytes reference (mmap-backed when loaded from file)
+    Mmap(Bytes),
+    /// String data as Vec<Bytes> references (mmap-backed when loaded from file)
+    MmapStrings(Vec<Bytes>),
 }
 
 /// Zero-copy tensor data
@@ -171,13 +175,20 @@ impl OnnxTensor {
     /// Call into_owned on the result to detach from tensor lifetime.
     /// For external data, this lazily loads the data from the external file.
     pub fn data(&self) -> Result<TensorData<'_>, Error> {
-        // Check if data is stored externally
-        if let Some(TensorDataLocation::External(ref external_info)) = self.data_location {
-            let data = external_info.load_data()?;
-            return Ok(TensorData::Raw(data));
+        match &self.data_location {
+            Some(TensorDataLocation::External(external_info)) => {
+                return Ok(TensorData::Raw(external_info.load_data()?));
+            }
+            Some(TensorDataLocation::Mmap(bytes)) => {
+                return Ok(TensorData::Raw(bytes.clone()));
+            }
+            Some(TensorDataLocation::MmapStrings(strings)) => {
+                return Ok(TensorData::Strings(strings.clone()));
+            }
+            Some(TensorDataLocation::TypedField) | None => {}
         }
 
-        // Internal data
+        // Typed field data
         let t = self
             .proto
             .as_ref()
@@ -231,13 +242,20 @@ impl OnnxTensor {
     /// Numeric performs zero-copy reinterpretation from typed fields.
     /// For external data, this lazily loads the data from the external file.
     pub fn into_data(mut self) -> Result<TensorData<'static>, Error> {
-        // Check if data is stored externally
-        if let Some(TensorDataLocation::External(ref external_info)) = self.data_location {
-            let data = external_info.load_data()?;
-            return Ok(TensorData::Raw(data));
+        match self.data_location.take() {
+            Some(TensorDataLocation::External(external_info)) => {
+                return Ok(TensorData::Raw(external_info.load_data()?));
+            }
+            Some(TensorDataLocation::Mmap(bytes)) => {
+                return Ok(TensorData::Raw(bytes));
+            }
+            Some(TensorDataLocation::MmapStrings(strings)) => {
+                return Ok(TensorData::Strings(strings));
+            }
+            Some(TensorDataLocation::TypedField) | None => {}
         }
 
-        // Internal data
+        // Typed field data
         let t = self
             .proto
             .as_mut()

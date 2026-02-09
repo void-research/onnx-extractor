@@ -1,8 +1,8 @@
+use memmap2::MmapOptions;
 use prost::bytes::Bytes;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -103,9 +103,9 @@ impl ExternalDataLoader {
         Ok(slice)
     }
 
-    /// Load entire file into memory as Bytes
+    /// Memory-map entire file as Bytes
     pub(crate) fn load_file(&self, path: &Path) -> Result<Bytes, Error> {
-        let mut file = File::open(path).map_err(|e| {
+        let file = File::open(path).map_err(|e| {
             Error::Io(std::io::Error::new(
                 e.kind(),
                 format!(
@@ -116,19 +116,20 @@ impl ExternalDataLoader {
             ))
         })?;
 
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to read external data file '{}': {}",
-                    path.display(),
-                    e
-                ),
-            ))
-        })?;
+        let mmap = unsafe {
+            MmapOptions::new().map_copy_read_only(&file).map_err(|e| {
+                Error::Io(std::io::Error::new(
+                    e.kind(),
+                    format!(
+                        "Failed to mmap external data file '{}': {}",
+                        path.display(),
+                        e
+                    ),
+                ))
+            })?
+        };
 
-        Ok(Bytes::from(buffer))
+        Ok(Bytes::from_owner(mmap))
     }
 
     /// Extract a slice of data based on offset and length

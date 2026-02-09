@@ -23,7 +23,7 @@ pub(crate) fn tensor_from_proto(
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
     let name = tensor.name.take().unwrap_or_default();
 
-    // Determine data location (internal vs external)
+    // Determine data location (internal vs external vs mmap-backed raw)
     let data_location = if !tensor.external_data.is_empty() {
         // Tensor has external data
         if let Some(loader) = external_data_loader {
@@ -35,16 +35,36 @@ pub(crate) fn tensor_from_proto(
                 "Tensor has external data but no external data loader was provided".to_string(),
             ));
         }
-    } else if tensor.raw_data.is_some()
-        || !tensor.float_data.is_empty()
+    } else if let Some(raw) = tensor.raw_data.take() {
+        if !raw.is_empty() {
+            // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
+            return Ok(OnnxTensor::new(
+                name,
+                shape,
+                data_type,
+                None,
+                Some(TensorDataLocation::Mmap(raw)),
+            ));
+        }
+        None
+    } else if !tensor.string_data.is_empty() {
+        // Keep string_data as Vec<Bytes> references (mmap-backed when loaded from file)
+        let strings = mem::take(&mut tensor.string_data);
+        return Ok(OnnxTensor::new(
+            name,
+            shape,
+            data_type,
+            None,
+            Some(TensorDataLocation::MmapStrings(strings)),
+        ));
+    } else if !tensor.float_data.is_empty()
         || !tensor.double_data.is_empty()
         || !tensor.int32_data.is_empty()
         || !tensor.int64_data.is_empty()
         || !tensor.uint64_data.is_empty()
-        || !tensor.string_data.is_empty()
     {
-        // Tensor has internal data
-        Some(TensorDataLocation::Internal)
+        // Tensor has typed-field data
+        Some(TensorDataLocation::TypedField)
     } else {
         // Tensor has no data (e.g., graph inputs/outputs)
         None
