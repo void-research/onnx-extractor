@@ -1,8 +1,8 @@
+use memmap2::MmapOptions;
 use prost::Message;
 use prost::bytes::Bytes;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -23,9 +23,9 @@ pub struct OnnxModel {
 impl OnnxModel {
     /// Load ONNX model from file path
     pub fn load_from_file(path: &str) -> Result<Self, Error> {
-        let mut file = File::open(path)?;
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer)?;
+        let file = File::open(path)?;
+        let mmap = unsafe { MmapOptions::new().map_copy_read_only(&file)? };
+        let bytes = Bytes::from_owner(mmap);
 
         // Extract model directory for external data loading
         let model_dir = Path::new(path)
@@ -33,17 +33,20 @@ impl OnnxModel {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
-        Self::load_from_bytes_with_dir(buffer, Some(model_dir))
+        Self::load_from_bytes_with_dir_bytes(bytes, Some(model_dir))
     }
 
     /// Load ONNX model from owned byte vector
     pub fn load_from_bytes(data: Vec<u8>) -> Result<Self, Error> {
-        Self::load_from_bytes_with_dir(data, None)
+        Self::load_from_bytes_with_dir_bytes(Bytes::from(data), None)
     }
 
     /// Load ONNX model from owned byte vector with optional model directory for external data
-    fn load_from_bytes_with_dir(data: Vec<u8>, model_dir: Option<PathBuf>) -> Result<Self, Error> {
-        let model = ModelProto::decode(Bytes::from(data))?;
+    fn load_from_bytes_with_dir_bytes(
+        data: Bytes,
+        model_dir: Option<PathBuf>,
+    ) -> Result<Self, Error> {
+        let model = ModelProto::decode(data)?;
         let mut graph = model
             .graph
             .ok_or_else(|| Error::InvalidModel("No graph found in model".to_string()))?;
