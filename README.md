@@ -1,6 +1,6 @@
 # onnx-extractor
 
-A tiny, lightweight ONNX model parser for extracting tensor shapes, operations, and raw data with zero-copy and external data loading support.
+A tiny and lightweight ONNX model parser for extracting tensor shapes, operations, and raw data with zero-copy, mmap, and external data loading support.
 
 ## Model Loading
 
