@@ -1,4 +1,4 @@
-use memmap2::MmapOptions;
+use memmap2::Mmap;
 use prost::Message;
 use prost::bytes::Bytes;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -24,7 +24,7 @@ impl OnnxModel {
     /// Load ONNX model from file path
     pub fn load_from_file(path: &str) -> Result<Self, Error> {
         let file = File::open(path)?;
-        let mmap = unsafe { MmapOptions::new().map_copy_read_only(&file)? };
+        let mmap = unsafe { Mmap::map(&file)? };
         let bytes = Bytes::from_owner(mmap);
 
         // Extract model directory for external data loading

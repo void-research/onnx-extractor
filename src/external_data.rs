@@ -1,4 +1,4 @@
-use memmap2::MmapOptions;
+use memmap2::Mmap;
 use prost::bytes::Bytes;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -117,7 +117,7 @@ impl ExternalDataLoader {
         })?;
 
         let mmap = unsafe {
-            MmapOptions::new().map_copy_read_only(&file).map_err(|e| {
+            Mmap::map(&file).map_err(|e| {
                 Error::Io(std::io::Error::new(
                     e.kind(),
                     format!(
