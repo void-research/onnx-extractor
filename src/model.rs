@@ -15,9 +15,15 @@ pub struct OnnxModel {
     pub operations: Vec<OnnxOperation>,
     pub inputs: Vec<String>,
     pub outputs: Vec<String>,
-    pub model_version: i64,
+    pub ir_version: i64,
     pub producer_name: String,
     pub producer_version: String,
+    pub domain: String,
+    pub model_version: i64,
+    pub doc_string: String,
+    pub graph_name: String,
+    pub metadata: HashMap<String, String>,
+    pub opsets: HashMap<String, i64>,
 }
 
 impl OnnxModel {
@@ -55,14 +61,35 @@ impl OnnxModel {
         // Tensors keep the loader alive via Arc as long as they need it
         let external_data_loader = model_dir.map(|dir| Arc::new(ExternalDataLoader::new(dir)));
 
+        let mut metadata = HashMap::new();
+        for mut prop in model.metadata_props {
+            if let Some(key) = prop.key.take() {
+                metadata.insert(key, prop.value.take().unwrap_or_default());
+            }
+        }
+
+        let mut opsets = HashMap::new();
+        for mut opset in model.opset_import {
+            opsets.insert(
+                opset.domain.take().unwrap_or_default(),
+                opset.version.unwrap_or(0),
+            );
+        }
+
         let mut onnx_model = OnnxModel {
             tensors: HashMap::new(),
             operations: Vec::new(),
             inputs: Vec::new(),
             outputs: Vec::new(),
-            model_version: model.model_version.unwrap_or(0),
+            ir_version: model.ir_version.unwrap_or(0),
             producer_name: model.producer_name.unwrap_or_default(),
             producer_version: model.producer_version.unwrap_or_default(),
+            domain: model.domain.unwrap_or_default(),
+            model_version: model.model_version.unwrap_or(0),
+            doc_string: model.doc_string.unwrap_or_default(),
+            graph_name: graph.name.clone().unwrap_or_default(),
+            metadata,
+            opsets,
         };
 
         // pre-allocate based on graph sizes to avoid repeated reallocations
@@ -145,6 +172,51 @@ impl OnnxModel {
         }
 
         Ok(onnx_model)
+    }
+
+    /// Get IR version
+    pub fn ir_version(&self) -> i64 {
+        self.ir_version
+    }
+
+    /// Get producer name
+    pub fn producer_name(&self) -> &str {
+        &self.producer_name
+    }
+
+    /// Get producer version
+    pub fn producer_version(&self) -> &str {
+        &self.producer_version
+    }
+
+    /// Get model domain
+    pub fn domain(&self) -> &str {
+        &self.domain
+    }
+
+    /// Get model version
+    pub fn model_version(&self) -> i64 {
+        self.model_version
+    }
+
+    /// Get documentation string
+    pub fn doc_string(&self) -> &str {
+        &self.doc_string
+    }
+
+    /// Get graph name
+    pub fn graph_name(&self) -> &str {
+        &self.graph_name
+    }
+
+    /// Get custom metadata properties
+    pub fn metadata(&self) -> &HashMap<String, String> {
+        &self.metadata
+    }
+
+    /// Get operator set imports (domain -> version)
+    pub fn opsets(&self) -> &HashMap<String, i64> {
+        &self.opsets
     }
 
     /// Get tensor information by name
@@ -391,10 +463,22 @@ impl OnnxModel {
     pub fn print_model_info(&self) {
         println!("=== ONNX Model Information ===");
         println!(
-            "Producer: {} v{}",
-            self.producer_name, self.producer_version
+            "Producer: {} v{} (IR v{}, Domain: {})",
+            self.producer_name, self.producer_version, self.ir_version, self.domain
         );
-        println!("Model Version: {}", self.model_version);
+        println!(
+            "Model Version: {}, Graph Name: {}",
+            self.model_version, self.graph_name
+        );
+        if !self.doc_string.is_empty() {
+            println!("Description: {}", self.doc_string);
+        }
+        if !self.metadata.is_empty() {
+            println!("Metadata: {:?}", self.metadata);
+        }
+        if !self.opsets.is_empty() {
+            println!("Opset Imports: {:?}", self.opsets);
+        }
         println!("Inputs: {:?}", self.inputs);
         println!("Outputs: {:?}", self.outputs);
 
