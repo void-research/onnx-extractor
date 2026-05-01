@@ -1,7 +1,7 @@
 use prost::bytes::Bytes;
 use std::borrow::Cow;
-use std::mem::{ManuallyDrop, MaybeUninit};
-use std::{any, mem, ptr, slice};
+use std::mem::ManuallyDrop;
+use std::{mem, slice};
 
 use crate::{
     DataType, Error, TensorProto, external_data::ExternalDataInfo,
@@ -291,63 +291,6 @@ impl OnnxTensor {
             }
             None => Err(Error::MissingField("tensor data".to_string())),
         }
-    }
-
-    /// Reinterpret tensor bytes as typed slice
-    ///
-    /// Assumes little-endian platform and standard IEEE 754 for floats.
-    /// String tensors are concatenated before conversion.
-    /// Returns error if data size is not aligned to type size.
-    pub fn copy_data_as<T: Copy>(&self) -> Result<Box<[T]>, Error> {
-        let data_ref = self.data()?;
-        let type_size = mem::size_of::<T>();
-
-        if type_size == 0 {
-            return Err(Error::DataConversion(
-                "Zero-sized types not supported".to_string(),
-            ));
-        }
-
-        let bytes_vec;
-        let bytes: &[u8] = match &data_ref {
-            TensorData::Raw(b) => b.as_ref(),
-            TensorData::Numeric(cow) => cow.as_ref(),
-            TensorData::Strings(parts) => {
-                let total: usize = parts.iter().map(|b| b.len()).sum();
-                let mut vec = Vec::with_capacity(total);
-                for b in parts {
-                    vec.extend_from_slice(b);
-                }
-                bytes_vec = vec;
-                &bytes_vec
-            }
-        };
-
-        if bytes.is_empty() {
-            return Ok(Box::from([]));
-        }
-
-        if !bytes.len().is_multiple_of(type_size) {
-            return Err(Error::DataConversion(format!(
-                "Data size {} not aligned to type size {} for {}",
-                bytes.len(),
-                type_size,
-                any::type_name::<T>()
-            )));
-        }
-
-        let count = bytes.len() / type_size;
-        let mut v: Vec<MaybeUninit<T>> = Vec::with_capacity(count);
-
-        unsafe {
-            v.set_len(count);
-            ptr::copy_nonoverlapping(bytes.as_ptr(), v.as_mut_ptr() as *mut u8, bytes.len());
-        }
-
-        let out_uninit = v.into_boxed_slice();
-        let out: Box<[T]> = unsafe { mem::transmute(out_uninit) };
-
-        Ok(out)
     }
 }
 
