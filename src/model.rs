@@ -87,8 +87,8 @@ impl OnnxModel {
         }
 
         // parse input tensor info and extract input names
-        for input in graph.input.drain(..) {
-            let name = input.name.clone().unwrap_or_default();
+        for mut input in graph.input.drain(..) {
+            let name = input.name.take().unwrap_or_default();
             if name.is_empty() {
                 continue;
             }
@@ -98,44 +98,43 @@ impl OnnxModel {
                 onnx_model.inputs.push(name.clone());
             }
 
-            if let Some(t) = &input.r#type
-                && let Some(type_proto_value) = &t.value
-                && let type_proto::Value::TensorType(tensor_type) = type_proto_value
+            if let Some(type_proto::Value::TensorType(tensor_type)) =
+                input.r#type.take().and_then(|t| t.value)
+                && !onnx_model.tensors.contains_key(&name)
             {
-                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), tensor_type)?;
-                onnx_model.tensors.entry(name).or_insert(onnx_tensor);
+                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                onnx_model.tensors.insert(name, onnx_tensor);
             }
         }
 
         // parse value_info for intermediate tensor shapes and types
-        for value_info in graph.value_info.drain(..) {
-            if let Some(t) = &value_info.r#type
-                && let Some(type_proto_value) = &t.value
-                && let type_proto::Value::TensorType(tensor_type) = type_proto_value
+        for mut value_info in graph.value_info.drain(..) {
+            if let Some(type_proto::Value::TensorType(tensor_type)) =
+                value_info.r#type.take().and_then(|t| t.value)
             {
-                let name = value_info.name.unwrap_or_default();
-                if !name.is_empty() {
-                    let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), tensor_type)?;
-                    onnx_model.tensors.entry(name).or_insert(onnx_tensor);
+                let name = value_info.name.take().unwrap_or_default();
+                if !name.is_empty() && !onnx_model.tensors.contains_key(&name) {
+                    let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                    onnx_model.tensors.insert(name, onnx_tensor);
                 }
             }
         }
 
         // parse output tensor info and extract output names
-        for output in graph.output.drain(..) {
-            let name = output.name.clone().unwrap_or_default();
+        for mut output in graph.output.drain(..) {
+            let name = output.name.take().unwrap_or_default();
             if name.is_empty() {
                 continue;
             }
 
             onnx_model.outputs.push(name.clone());
 
-            if let Some(t) = &output.r#type
-                && let Some(type_proto_value) = &t.value
-                && let type_proto::Value::TensorType(tensor_type) = type_proto_value
+            if let Some(type_proto::Value::TensorType(tensor_type)) =
+                output.r#type.take().and_then(|t| t.value)
+                && !onnx_model.tensors.contains_key(&name)
             {
-                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), tensor_type)?;
-                onnx_model.tensors.entry(name).or_insert(onnx_tensor);
+                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                onnx_model.tensors.insert(name, onnx_tensor);
             }
         }
 
@@ -173,21 +172,18 @@ impl OnnxModel {
 
     /// Get all operation types in the model
     pub fn operation_types(&self) -> Vec<String> {
-        // collect unique operation types using a hash set of &str to avoid
-        // allocating intermediate owned Strings, then sort the resulting Vec
-        let mut set: HashSet<&str> = HashSet::with_capacity(self.operations.len());
+        let mut set: HashSet<&str> = HashSet::new();
         for op in &self.operations {
             set.insert(op.op_type.as_str());
         }
         let mut op_types: Vec<String> = set.into_iter().map(|s| s.to_string()).collect();
-        op_types.sort();
+        op_types.sort_unstable();
         op_types
     }
 
     /// Count operations by type
     pub fn count_operations_by_type(&self) -> HashMap<String, usize> {
         let mut counts = HashMap::new();
-        counts.reserve(self.operations.len());
         for op in &self.operations {
             *counts.entry(op.op_type.clone()).or_insert(0) += 1;
         }
@@ -234,18 +230,16 @@ impl OnnxModel {
         let op_count = self.operations.len();
 
         // map tensor name -> producer op index
-        let mut producer: HashMap<&str, usize> = HashMap::new();
+        let mut producer: HashMap<&str, usize> = HashMap::with_capacity(op_count);
+        // map tensor name -> list of consumer op indices
+        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(op_count);
+
         for (idx, op) in self.operations.iter().enumerate() {
             for out in &op.outputs {
                 if !out.is_empty() {
-                    producer.entry(out.as_str()).or_insert(idx);
+                    producer.insert(out.as_str(), idx);
                 }
             }
-        }
-
-        // map tensor name -> list of consumer op indices
-        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::new();
-        for (idx, op) in self.operations.iter().enumerate() {
             for input in &op.inputs {
                 if !input.is_empty() {
                     consumers.entry(input.as_str()).or_default().push(idx);
@@ -253,15 +247,12 @@ impl OnnxModel {
             }
         }
 
-        // indegree = number of inputs coming from other ops (i.e. produced by some op)
-        let mut indegree: Vec<usize> = vec![0; op_count];
+        // indegree = number of inputs coming from other ops
+        let mut indegree = vec![0; op_count];
         for (idx, op) in self.operations.iter().enumerate() {
-            let mut count = 0usize;
+            let mut count = 0;
             for input in &op.inputs {
-                if input.is_empty() {
-                    continue;
-                }
-                if producer.contains_key(input.as_str()) {
+                if !input.is_empty() && producer.contains_key(input.as_str()) {
                     count += 1;
                 }
             }
@@ -269,12 +260,12 @@ impl OnnxModel {
         }
 
         // start with ops that have indegree 0
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        for (idx, &d) in indegree.iter().enumerate() {
-            if d == 0 {
-                queue.push_back(idx);
-            }
-        }
+        let mut queue: VecDeque<usize> = indegree
+            .iter()
+            .enumerate()
+            .filter(|&(_, &d)| d == 0)
+            .map(|(idx, _)| idx)
+            .collect();
 
         let mut ordered: Vec<&OnnxOperation> = Vec::with_capacity(op_count);
 
@@ -282,19 +273,14 @@ impl OnnxModel {
             let op = &self.operations[idx];
             ordered.push(op);
 
-            // mark outputs as available and reduce indegree of consumers
             for out in &op.outputs {
-                if out.is_empty() {
-                    continue;
-                }
-                if let Some(cons_list) = consumers.get(out.as_str()) {
+                if !out.is_empty()
+                    && let Some(cons_list) = consumers.get(out.as_str())
+                {
                     for &cidx in cons_list {
-                        // only decrease indegree if the dependency was counted from a producer
-                        if indegree[cidx] > 0 {
-                            indegree[cidx] -= 1;
-                            if indegree[cidx] == 0 {
-                                queue.push_back(cidx);
-                            }
+                        indegree[cidx] -= 1;
+                        if indegree[cidx] == 0 {
+                            queue.push_back(cidx);
                         }
                     }
                 }
@@ -327,18 +313,16 @@ impl OnnxModel {
         let op_count = self.operations.len();
 
         // map tensor name -> producer op index
-        let mut producer: HashMap<&str, usize> = HashMap::new();
+        let mut producer: HashMap<&str, usize> = HashMap::with_capacity(op_count);
+        // map tensor name -> list of consumer op indices
+        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(op_count);
+
         for (idx, op) in self.operations.iter().enumerate() {
             for out in &op.outputs {
                 if !out.is_empty() {
-                    producer.entry(out.as_str()).or_insert(idx);
+                    producer.insert(out.as_str(), idx);
                 }
             }
-        }
-
-        // map tensor name -> list of consumer op indices
-        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::new();
-        for (idx, op) in self.operations.iter().enumerate() {
             for input in &op.inputs {
                 if !input.is_empty() {
                     consumers.entry(input.as_str()).or_default().push(idx);
@@ -347,14 +331,11 @@ impl OnnxModel {
         }
 
         // indegree = number of inputs coming from other ops
-        let mut indegree: Vec<usize> = vec![0; op_count];
+        let mut indegree = vec![0; op_count];
         for (idx, op) in self.operations.iter().enumerate() {
-            let mut count = 0usize;
+            let mut count = 0;
             for input in &op.inputs {
-                if input.is_empty() {
-                    continue;
-                }
-                if producer.contains_key(input.as_str()) {
+                if !input.is_empty() && producer.contains_key(input.as_str()) {
                     count += 1;
                 }
             }
@@ -362,70 +343,47 @@ impl OnnxModel {
         }
 
         // start with ops that have indegree 0, prioritizing those that consume model inputs
-        let mut queue: VecDeque<usize> = VecDeque::new();
-        let mut ready_ops: Vec<usize> = Vec::new();
+        let mut ready_ops: Vec<usize> = indegree
+            .iter()
+            .enumerate()
+            .filter(|&(_, &d)| d == 0)
+            .map(|(idx, _)| idx)
+            .collect();
 
-        for (idx, &d) in indegree.iter().enumerate() {
-            if d == 0 {
-                ready_ops.push(idx);
-            }
-        }
-
-        // sort ready ops: input consumers first, then parameter-only ops
+        // sort ready ops: input consumers first
         ready_ops.sort_by_key(|&idx| {
             let op = &self.operations[idx];
             let consumes_input = op.inputs.iter().any(|input| self.inputs.contains(input));
-            !consumes_input // false sorts before true, so input consumers come first
+            !consumes_input
         });
 
-        for idx in ready_ops {
-            queue.push_back(idx);
-        }
-
+        let mut queue: VecDeque<usize> = ready_ops.into();
         let mut ordered: Vec<&OnnxOperation> = Vec::with_capacity(op_count);
 
         while let Some(idx) = queue.pop_front() {
             let op = &self.operations[idx];
             ordered.push(op);
 
-            // collect newly ready operations
-            let mut newly_ready: Vec<usize> = Vec::new();
-
             for out in &op.outputs {
-                if out.is_empty() {
-                    continue;
-                }
-                if let Some(cons_list) = consumers.get(out.as_str()) {
+                if !out.is_empty()
+                    && let Some(cons_list) = consumers.get(out.as_str())
+                {
                     for &cidx in cons_list {
-                        if indegree[cidx] > 0 {
-                            indegree[cidx] -= 1;
-                            if indegree[cidx] == 0 {
-                                newly_ready.push(cidx);
+                        indegree[cidx] -= 1;
+                        if indegree[cidx] == 0 {
+                            let consumer_op = &self.operations[cidx];
+                            let consumes_input = consumer_op
+                                .inputs
+                                .iter()
+                                .any(|input| self.inputs.contains(input));
+
+                            if consumes_input {
+                                queue.push_front(cidx);
+                            } else {
+                                queue.push_back(cidx);
                             }
                         }
                     }
-                }
-            }
-
-            // sort newly ready ops: input consumers first
-            newly_ready.sort_by_key(|&idx| {
-                let op = &self.operations[idx];
-                let consumes_input = op.inputs.iter().any(|input| self.inputs.contains(input));
-                !consumes_input
-            });
-
-            // add to front of queue (input consumers) or back (parameter ops)
-            for cidx in newly_ready {
-                let consumer_op = &self.operations[cidx];
-                let consumes_input = consumer_op
-                    .inputs
-                    .iter()
-                    .any(|input| self.inputs.contains(input));
-
-                if consumes_input {
-                    queue.push_front(cidx);
-                } else {
-                    queue.push_back(cidx);
                 }
             }
         }

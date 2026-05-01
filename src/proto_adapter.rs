@@ -128,7 +128,7 @@ pub(crate) fn parse_attribute_proto(mut attr: AttributeProto) -> Result<Attribut
         8 => {
             let strings_bytes = mem::take(&mut attr.strings);
             let strings: Result<Vec<String>, Error> = strings_bytes
-                .iter()
+                .into_iter()
                 .map(|s| String::from_utf8(s.to_vec()).map_err(Error::from))
                 .collect();
             Ok(AttributeValue::Strings(strings?))
