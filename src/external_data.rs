@@ -1,10 +1,9 @@
 use memmap2::Mmap;
 use prost::bytes::Bytes;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 
 use crate::{Error, StringStringEntryProto};
 
@@ -14,14 +13,14 @@ pub(crate) struct ExternalDataInfo {
     pub location: String,
     pub offset: Option<u64>,
     pub length: Option<u64>,
-    pub loader: Rc<ExternalDataLoader>,
+    pub loader: Arc<ExternalDataLoader>,
 }
 
 impl ExternalDataInfo {
     /// Parse external data info from key-value pairs
     pub fn from_key_value_pairs(
         pairs: &[StringStringEntryProto],
-        loader: Rc<ExternalDataLoader>,
+        loader: Arc<ExternalDataLoader>,
     ) -> Result<Self, Error> {
         let mut location: Option<String> = None;
         let mut offset: Option<u64> = None;
@@ -64,7 +63,7 @@ impl ExternalDataInfo {
 /// Manages lazy loading and caching of external tensor data files
 pub(crate) struct ExternalDataLoader {
     model_dir: PathBuf,
-    cache: RefCell<HashMap<String, Bytes>>,
+    cache: RwLock<HashMap<String, Bytes>>,
 }
 
 impl ExternalDataLoader {
@@ -72,7 +71,7 @@ impl ExternalDataLoader {
     pub(crate) fn new(model_dir: PathBuf) -> Self {
         ExternalDataLoader {
             model_dir,
-            cache: RefCell::new(HashMap::new()),
+            cache: RwLock::new(HashMap::new()),
         }
     }
 
@@ -84,20 +83,21 @@ impl ExternalDataLoader {
         let file_path = self.model_dir.join(&info.location);
 
         {
-            let cache = self.cache.borrow();
+            let cache = self.cache.read().unwrap();
             if let Some(cached_data) = cache.get(&info.location) {
-                // File is cached, return the requested slice
                 return self.slice_data(cached_data, info);
             }
         }
 
-        // File not cached
-        let file_data = self.load_file(&file_path)?;
+        let mut cache = self.cache.write().unwrap();
 
+        if let Some(cached_data) = cache.get(&info.location) {
+            return self.slice_data(cached_data, info);
+        }
+
+        let file_data = self.load_file(&file_path)?;
         let slice = self.slice_data(&file_data, info)?;
 
-        // Cache the entire file
-        let mut cache = self.cache.borrow_mut();
         cache.insert(info.location.clone(), file_data);
 
         Ok(slice)
@@ -166,7 +166,7 @@ impl std::fmt::Debug for ExternalDataLoader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ExternalDataLoader")
             .field("model_dir", &self.model_dir)
-            .field("cached_files", &self.cache.borrow().len())
+            .field("cached_files", &self.cache.read().unwrap().len())
             .finish()
     }
 }

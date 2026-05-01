@@ -4,7 +4,7 @@ use prost::bytes::Bytes;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
 use crate::{Error, ModelProto, OnnxOperation, OnnxTensor, proto_adapter, type_proto};
@@ -52,8 +52,8 @@ impl OnnxModel {
             .ok_or_else(|| Error::InvalidModel("No graph found in model".to_string()))?;
 
         // Create external data loader if model directory is available
-        // Tensors keep the loader alive via Rc as long as they need it
-        let external_data_loader = model_dir.map(|dir| Rc::new(ExternalDataLoader::new(dir)));
+        // Tensors keep the loader alive via Arc as long as they need it
+        let external_data_loader = model_dir.map(|dir| Arc::new(ExternalDataLoader::new(dir)));
 
         let mut onnx_model = OnnxModel {
             tensors: HashMap::new(),
@@ -153,11 +153,10 @@ impl OnnxModel {
     }
 
     /// Get all operations of a specific type
-    pub fn get_operations_by_type(&self, op_type: &str) -> Vec<&OnnxOperation> {
+    pub fn get_operations_by_type(&self, op_type: &str) -> impl Iterator<Item = &OnnxOperation> {
         self.operations
             .iter()
-            .filter(|op| op.op_type == op_type)
-            .collect()
+            .filter(move |&op| op.op_type == op_type)
     }
 
     /// Get operation by name
@@ -166,8 +165,8 @@ impl OnnxModel {
     }
 
     /// Get all tensor names
-    pub fn tensor_names(&self) -> Vec<&String> {
-        self.tensors.keys().collect()
+    pub fn tensor_names(&self) -> impl Iterator<Item = &String> {
+        self.tensors.keys()
     }
 
     /// Get all operation types in the model
@@ -191,27 +190,18 @@ impl OnnxModel {
     }
 
     /// Get input tensors
-    pub fn get_input_tensors(&self) -> Vec<&OnnxTensor> {
-        self.inputs
-            .iter()
-            .filter_map(|name| self.get_tensor(name))
-            .collect()
+    pub fn get_input_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+        self.inputs.iter().filter_map(|name| self.get_tensor(name))
     }
 
     /// Get output tensors
-    pub fn get_output_tensors(&self) -> Vec<&OnnxTensor> {
-        self.outputs
-            .iter()
-            .filter_map(|name| self.get_tensor(name))
-            .collect()
+    pub fn get_output_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+        self.outputs.iter().filter_map(|name| self.get_tensor(name))
     }
 
     /// Get tensors with data (initialisers/weights)
-    pub fn get_weight_tensors(&self) -> Vec<&OnnxTensor> {
-        self.tensors
-            .values()
-            .filter(|tensor| tensor.data().is_ok())
-            .collect()
+    pub fn get_weight_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+        self.tensors.values().filter(|&t| t.data().is_ok())
     }
 
     /// Return operations in a simple topological order using Kahn's algorithm.
@@ -465,7 +455,7 @@ impl OnnxModel {
         let op_counts = self.count_operations_by_type();
         println!("Operation types: {:?}", op_counts);
 
-        let weight_count = self.get_weight_tensors().len();
+        let weight_count = self.get_weight_tensors().count();
         println!("Weight tensors: {}", weight_count);
     }
 }

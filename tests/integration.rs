@@ -21,9 +21,8 @@ fn test_tensor_queries() {
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     // tensor names should be non-empty and get_tensor should return for the first one
-    let names = model.tensor_names();
-    assert!(!names.is_empty(), "tensor_names should not be empty");
-    let first_name = names[0];
+    let mut names = model.tensor_names();
+    let first_name = names.next().expect("tensor_names should not be empty");
     assert!(
         model.get_tensor(first_name).is_some(),
         "get_tensor should find the tensor"
@@ -39,9 +38,9 @@ fn test_operation_queries() {
     let op_types = model.operation_types();
     assert!(!op_types.is_empty(), "operation_types should not be empty");
     let first_type = &op_types[0];
-    let ops_of_type = model.get_operations_by_type(first_type);
+    let mut ops_of_type = model.get_operations_by_type(first_type);
     assert!(
-        !ops_of_type.is_empty(),
+        ops_of_type.next().is_some(),
         "get_operations_by_type should return at least one op"
     );
 
@@ -59,14 +58,14 @@ fn test_input_output_and_weights() {
     let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
-    let input_tensors = model.get_input_tensors();
-    let output_tensors = model.get_output_tensors();
+    let mut input_tensors = model.get_input_tensors();
+    let mut output_tensors = model.get_output_tensors();
     assert!(
-        !input_tensors.is_empty(),
+        input_tensors.next().is_some(),
         "get_input_tensors should return inputs"
     );
     assert!(
-        !output_tensors.is_empty(),
+        output_tensors.next().is_some(),
         "get_output_tensors should return outputs"
     );
 
@@ -105,14 +104,11 @@ fn test_get_raw_data() {
     let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
-    let weights = model.get_weight_tensors();
-    // ensure at least one weight tensor exists in the model for this test
-    assert!(
-        !weights.is_empty(),
-        "model should contain at least one weight tensor"
-    );
+    let mut weights = model.get_weight_tensors();
+    let first = weights
+        .next()
+        .expect("model should contain at least one weight tensor");
 
-    let first = weights[0];
     let data_ref = first.data().expect("data() should return tensor data");
     assert!(!data_ref.is_empty(), "tensor data should be non-empty");
 }

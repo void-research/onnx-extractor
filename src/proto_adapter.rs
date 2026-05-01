@@ -4,7 +4,7 @@ use crate::{
     AttributeProto, AttributeValue, DataType, Error, NodeProto, OnnxOperation, OnnxTensor,
     TensorProto,
 };
-use std::{collections::HashMap, mem, rc::Rc};
+use std::{collections::HashMap, mem, sync::Arc};
 
 /// Centralised adapter functions that translate generated protobuf types into
 /// crate-native types. Keep all direct proto-field usage here so future changes
@@ -17,7 +17,7 @@ use std::{collections::HashMap, mem, rc::Rc};
 /// Create OnnxTensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
     mut tensor: TensorProto,
-    external_data_loader: Option<Rc<ExternalDataLoader>>,
+    external_data_loader: Option<Arc<ExternalDataLoader>>,
 ) -> Result<OnnxTensor, Error> {
     let shape: Vec<i64> = std::mem::take(&mut tensor.dims);
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
