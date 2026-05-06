@@ -534,8 +534,8 @@ impl OnnxModel {
                 op.inputs().join(", "),
                 op.outputs().join(", ")
             );
-            if !op.attribute_names().is_empty() {
-                println!("    Attributes: {:?}", op.attribute_names());
+            if !op.attributes().is_empty() {
+                println!("    Attributes: {:?}", op.attributes().keys());
             }
         }
     }
