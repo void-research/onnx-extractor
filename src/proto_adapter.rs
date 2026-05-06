@@ -38,45 +38,30 @@ pub(crate) fn tensor_from_proto(
     } else if let Some(raw) = tensor.raw_data.take() {
         if !raw.is_empty() {
             // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
-            return Ok(OnnxTensor::new(
-                name,
-                shape,
-                data_type,
-                None,
-                Some(TensorDataLocation::Mmap(raw)),
-            ));
+            Some(TensorDataLocation::Mmap(raw))
+        } else {
+            None
         }
-        None
     } else if !tensor.string_data.is_empty() {
-        // Keep string_data as Vec<Bytes> references (mmap-backed when loaded from file)
-        let strings = mem::take(&mut tensor.string_data);
-        return Ok(OnnxTensor::new(
-            name,
-            shape,
-            data_type,
-            None,
-            Some(TensorDataLocation::MmapStrings(strings)),
-        ));
-    } else if !tensor.float_data.is_empty()
-        || !tensor.double_data.is_empty()
-        || !tensor.int32_data.is_empty()
-        || !tensor.int64_data.is_empty()
-        || !tensor.uint64_data.is_empty()
-    {
-        // Tensor has typed-field data
-        Some(TensorDataLocation::TypedField)
+        Some(TensorDataLocation::MmapStrings(mem::take(
+            &mut tensor.string_data,
+        )))
+    } else if !tensor.float_data.is_empty() {
+        Some(TensorDataLocation::F32(mem::take(&mut tensor.float_data)))
+    } else if !tensor.double_data.is_empty() {
+        Some(TensorDataLocation::F64(mem::take(&mut tensor.double_data)))
+    } else if !tensor.int32_data.is_empty() {
+        Some(TensorDataLocation::I32(mem::take(&mut tensor.int32_data)))
+    } else if !tensor.int64_data.is_empty() {
+        Some(TensorDataLocation::I64(mem::take(&mut tensor.int64_data)))
+    } else if !tensor.uint64_data.is_empty() {
+        Some(TensorDataLocation::U64(mem::take(&mut tensor.uint64_data)))
     } else {
         // Tensor has no data (e.g., graph inputs/outputs)
         None
     };
 
-    Ok(OnnxTensor::new(
-        name,
-        shape,
-        data_type,
-        Some(tensor),
-        data_location,
-    ))
+    Ok(OnnxTensor::new(name, shape, data_type, data_location))
 }
 
 /// Create OnnxOperation from ONNX NodeProto

@@ -1,23 +1,78 @@
 use prost::bytes::Bytes;
 use std::borrow::Cow;
-use std::mem::ManuallyDrop;
 use std::{mem, slice};
 
 use crate::{
-    DataType, Error, TensorProto, external_data::ExternalDataInfo,
-    tensor_shape_proto::dimension::Value, type_proto::Tensor,
+    DataType, Error, external_data::ExternalDataInfo, tensor_shape_proto::dimension::Value,
+    type_proto::Tensor,
 };
 
 #[derive(Debug, Clone)]
 pub(crate) enum TensorDataLocation {
-    /// Data is stored in typed numeric proto fields (float_data, int32_data, etc.)
-    TypedField,
     /// Data is stored in an external file
     External(ExternalDataInfo),
     /// Raw data as a Bytes reference (mmap-backed when loaded from file)
     Mmap(Bytes),
-    /// String data as Vec<Bytes> references (mmap-backed when loaded from file)
+    /// String data as vectors of Bytes references (mmap-backed when loaded from file)
     MmapStrings(Vec<Bytes>),
+    // Numeric data (memory taken from TensorProto)
+    F32(Vec<f32>),
+    F64(Vec<f64>),
+    I64(Vec<i64>),
+    U64(Vec<u64>),
+    I32(Vec<i32>),
+}
+
+/// Container that safely preserves typed vector memory to avoid Undefined Behavior
+/// during deallocation, while providing a uniform `[u8]` interface.
+#[derive(Debug, Clone)]
+pub enum NumericData<'a> {
+    /// A read-only reference, usually created via `OnnxTensor::data()`.
+    Borrowed(&'a [u8]),
+    U8(Vec<u8>),
+    F32(Vec<f32>),
+    F64(Vec<f64>),
+    I32(Vec<i32>),
+    I64(Vec<i64>),
+    U64(Vec<u64>),
+}
+
+impl<'a> NumericData<'a> {
+    pub fn as_slice(&self) -> &[u8] {
+        match self {
+            Self::Borrowed(b) => b,
+            Self::U8(v) => v.as_slice(),
+            Self::F32(v) => slice_as_u8(v),
+            Self::F64(v) => slice_as_u8(v),
+            Self::I32(v) => slice_as_u8(v),
+            Self::I64(v) => slice_as_u8(v),
+            Self::U64(v) => slice_as_u8(v),
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.as_slice().len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.as_slice().is_empty()
+    }
+
+    /// Converts to a static owned lifetime.
+    ///
+    /// If this holds a `Borrowed` reference, it performs a deep copy.
+    /// If it already holds an owned vector, ownership is transferred.
+    pub fn into_owned(self) -> NumericData<'static> {
+        match self {
+            Self::Borrowed(b) => NumericData::U8(b.to_vec()),
+            Self::U8(v) => NumericData::U8(v),
+            Self::F32(v) => NumericData::F32(v),
+            Self::F64(v) => NumericData::F64(v),
+            Self::I32(v) => NumericData::I32(v),
+            Self::I64(v) => NumericData::I64(v),
+            Self::U64(v) => NumericData::U64(v),
+        }
+    }
 }
 
 /// Zero-copy tensor data
@@ -26,9 +81,9 @@ pub enum TensorData<'a> {
     /// Contiguous buffer from raw_data field, Arc-backed
     Raw(Bytes),
     /// Reinterpreted numeric data from typed fields
-    Numeric(Cow<'a, [u8]>),
+    Numeric(NumericData<'a>),
     /// String tensor elements, each Arc-backed
-    Strings(Vec<Bytes>),
+    Strings(Cow<'a, [Bytes]>),
 }
 
 impl<'a> TensorData<'a> {
@@ -39,7 +94,7 @@ impl<'a> TensorData<'a> {
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
-            TensorData::Numeric(cow) => cow.len(),
+            TensorData::Numeric(num) => num.len(),
             TensorData::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
         }
     }
@@ -51,8 +106,8 @@ impl<'a> TensorData<'a> {
     pub fn is_empty(&self) -> bool {
         match self {
             TensorData::Raw(b) => b.is_empty(),
-            TensorData::Numeric(cow) => cow.is_empty(),
-            TensorData::Strings(parts) => parts.is_empty(),
+            TensorData::Numeric(n) => n.is_empty(),
+            TensorData::Strings(s) => s.is_empty(),
         }
     }
 
@@ -64,8 +119,8 @@ impl<'a> TensorData<'a> {
     pub fn into_owned(self) -> TensorData<'static> {
         match self {
             TensorData::Raw(b) => TensorData::Raw(b),
-            TensorData::Numeric(cow) => TensorData::Numeric(Cow::Owned(cow.into_owned())),
-            TensorData::Strings(s) => TensorData::Strings(s),
+            TensorData::Numeric(n) => TensorData::Numeric(n.into_owned()),
+            TensorData::Strings(s) => TensorData::Strings(Cow::Owned(s.into_owned())),
         }
     }
 
@@ -76,17 +131,17 @@ impl<'a> TensorData<'a> {
     pub fn as_slice(&self) -> Cow<'_, [u8]> {
         match self {
             TensorData::Raw(b) => Cow::Borrowed(b.as_ref()),
-            TensorData::Numeric(cow) => Cow::Borrowed(cow.as_ref()),
-            TensorData::Strings(parts) => {
-                if parts.len() == 1 {
-                    Cow::Borrowed(parts[0].as_ref())
-                } else if parts.is_empty() {
+            TensorData::Numeric(n) => Cow::Borrowed(n.as_slice()),
+            TensorData::Strings(s) => {
+                if s.len() == 1 {
+                    Cow::Borrowed(s[0].as_ref())
+                } else if s.is_empty() {
                     Cow::Borrowed(&[])
                 } else {
-                    let total: usize = parts.iter().map(|b| b.len()).sum();
+                    let total = s.iter().map(|bytes| bytes.len()).sum();
                     let mut vec = Vec::with_capacity(total);
-                    for b in parts {
-                        vec.extend_from_slice(b);
+                    for bytes in s.as_ref() {
+                        vec.extend_from_slice(bytes);
                     }
                     Cow::Owned(vec)
                 }
@@ -101,7 +156,6 @@ pub struct OnnxTensor {
     name: String,
     shape: Vec<i64>,
     data_type: DataType,
-    proto: Option<TensorProto>,
     data_location: Option<TensorDataLocation>,
 }
 
@@ -110,14 +164,12 @@ impl OnnxTensor {
         name: String,
         shape: Vec<i64>,
         data_type: DataType,
-        proto: Option<TensorProto>,
         data_location: Option<TensorDataLocation>,
     ) -> Self {
         OnnxTensor {
             name,
             shape,
             data_type,
-            proto,
             data_location,
         }
     }
@@ -165,7 +217,6 @@ impl OnnxTensor {
             shape,
             DataType::from_onnx_type(elem_type),
             None,
-            None,
         ))
     }
 
@@ -177,61 +228,27 @@ impl OnnxTensor {
     pub fn data(&self) -> Result<TensorData<'_>, Error> {
         match &self.data_location {
             Some(TensorDataLocation::External(external_info)) => {
-                return Ok(TensorData::Raw(external_info.load_data()?));
+                Ok(TensorData::Raw(external_info.load_data()?))
             }
-            Some(TensorDataLocation::Mmap(bytes)) => {
-                return Ok(TensorData::Raw(bytes.clone()));
-            }
+            Some(TensorDataLocation::Mmap(bytes)) => Ok(TensorData::Raw(bytes.clone())),
             Some(TensorDataLocation::MmapStrings(strings)) => {
-                return Ok(TensorData::Strings(strings.clone()));
+                Ok(TensorData::Strings(Cow::Borrowed(strings)))
             }
-            Some(TensorDataLocation::TypedField) | None => {}
-        }
-
-        // Typed field data
-        let t = self
-            .proto
-            .as_ref()
-            .ok_or_else(|| Error::MissingField("tensor data".to_string()))?;
-
-        if let Some(raw) = &t.raw_data
-            && !raw.is_empty()
-        {
-            return Ok(TensorData::Raw(raw.clone()));
-        }
-
-        match storage_backing(self.data_type) {
-            Some(StorageBacking::F32) => {
-                Ok(TensorData::Numeric(Cow::Borrowed(slice_bytes_as::<f32>(
-                    t.float_data.as_slice(),
-                ))))
-            }
-            Some(StorageBacking::F64) => {
-                Ok(TensorData::Numeric(Cow::Borrowed(slice_bytes_as::<f64>(
-                    t.double_data.as_slice(),
-                ))))
-            }
-            Some(StorageBacking::I64) => {
-                Ok(TensorData::Numeric(Cow::Borrowed(slice_bytes_as::<i64>(
-                    t.int64_data.as_slice(),
-                ))))
-            }
-            Some(StorageBacking::U64) => {
-                Ok(TensorData::Numeric(Cow::Borrowed(slice_bytes_as::<u64>(
-                    t.uint64_data.as_slice(),
-                ))))
-            }
-            Some(StorageBacking::I32) => {
-                Ok(TensorData::Numeric(Cow::Borrowed(slice_bytes_as::<i32>(
-                    t.int32_data.as_slice(),
-                ))))
-            }
-            Some(StorageBacking::Strings) => {
-                if t.string_data.is_empty() && self.shape.iter().any(|&d| d != 0) {
-                    return Err(Error::MissingField("tensor data".to_string()));
-                }
-                Ok(TensorData::Strings(t.string_data.clone()))
-            }
+            Some(TensorDataLocation::F32(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
+                slice_as_u8::<f32>(v),
+            ))),
+            Some(TensorDataLocation::F64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
+                slice_as_u8::<f64>(v),
+            ))),
+            Some(TensorDataLocation::I64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
+                slice_as_u8::<i64>(v),
+            ))),
+            Some(TensorDataLocation::U64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
+                slice_as_u8::<u64>(v),
+            ))),
+            Some(TensorDataLocation::I32(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
+                slice_as_u8::<i32>(v),
+            ))),
             None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
@@ -244,107 +261,22 @@ impl OnnxTensor {
     pub fn into_data(mut self) -> Result<TensorData<'static>, Error> {
         match self.data_location.take() {
             Some(TensorDataLocation::External(external_info)) => {
-                return Ok(TensorData::Raw(external_info.load_data()?));
+                Ok(TensorData::Raw(external_info.load_data()?))
             }
-            Some(TensorDataLocation::Mmap(bytes)) => {
-                return Ok(TensorData::Raw(bytes));
-            }
+            Some(TensorDataLocation::Mmap(bytes)) => Ok(TensorData::Raw(bytes)),
             Some(TensorDataLocation::MmapStrings(strings)) => {
-                return Ok(TensorData::Strings(strings));
+                Ok(TensorData::Strings(Cow::Owned(strings)))
             }
-            Some(TensorDataLocation::TypedField) | None => {}
-        }
-
-        // Typed field data
-        let t = self
-            .proto
-            .as_mut()
-            .ok_or_else(|| Error::MissingField("tensor data".to_string()))?;
-
-        if let Some(raw) = t.raw_data.take()
-            && !raw.is_empty()
-        {
-            return Ok(TensorData::Raw(raw));
-        }
-
-        match storage_backing(self.data_type) {
-            Some(StorageBacking::F32) => Ok(TensorData::Numeric(Cow::Owned(into_vec_u8::<f32>(
-                mem::take(&mut t.float_data),
-            )))),
-            Some(StorageBacking::F64) => Ok(TensorData::Numeric(Cow::Owned(into_vec_u8::<f64>(
-                mem::take(&mut t.double_data),
-            )))),
-            Some(StorageBacking::I64) => Ok(TensorData::Numeric(Cow::Owned(into_vec_u8::<i64>(
-                mem::take(&mut t.int64_data),
-            )))),
-            Some(StorageBacking::U64) => Ok(TensorData::Numeric(Cow::Owned(into_vec_u8::<u64>(
-                mem::take(&mut t.uint64_data),
-            )))),
-            Some(StorageBacking::I32) => Ok(TensorData::Numeric(Cow::Owned(into_vec_u8::<i32>(
-                mem::take(&mut t.int32_data),
-            )))),
-            Some(StorageBacking::Strings) => {
-                if t.string_data.is_empty() && self.shape.iter().any(|&d| d != 0) {
-                    return Err(Error::MissingField("tensor data".to_string()));
-                }
-                Ok(TensorData::Strings(mem::take(&mut t.string_data)))
-            }
+            Some(TensorDataLocation::F32(v)) => Ok(TensorData::Numeric(NumericData::F32(v))),
+            Some(TensorDataLocation::F64(v)) => Ok(TensorData::Numeric(NumericData::F64(v))),
+            Some(TensorDataLocation::I64(v)) => Ok(TensorData::Numeric(NumericData::I64(v))),
+            Some(TensorDataLocation::U64(v)) => Ok(TensorData::Numeric(NumericData::U64(v))),
+            Some(TensorDataLocation::I32(v)) => Ok(TensorData::Numeric(NumericData::I32(v))),
             None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
 }
 
-enum StorageBacking {
-    F32,
-    F64,
-    I64,
-    U64,
-    I32,
-    Strings,
-}
-
-fn storage_backing(dt: DataType) -> Option<StorageBacking> {
-    match dt {
-        DataType::Float | DataType::Complex64 => Some(StorageBacking::F32),
-        DataType::Double | DataType::Complex128 => Some(StorageBacking::F64),
-        DataType::Int64 => Some(StorageBacking::I64),
-        DataType::Uint32 | DataType::Uint64 => Some(StorageBacking::U64),
-        DataType::Int32
-        | DataType::Int16
-        | DataType::Int8
-        | DataType::Int4
-        | DataType::Int2
-        | DataType::Uint16
-        | DataType::Uint8
-        | DataType::Uint4
-        | DataType::Uint2
-        | DataType::Bool
-        | DataType::Float16
-        | DataType::Bfloat16
-        | DataType::Float8e4m3fn
-        | DataType::Float8e4m3fnuz
-        | DataType::Float8e5m2
-        | DataType::Float8e5m2fnuz
-        | DataType::Float8e8m0
-        | DataType::Float4e2m1 => Some(StorageBacking::I32),
-        DataType::String => Some(StorageBacking::Strings),
-        DataType::Undefined => None,
-    }
-}
-
-fn slice_bytes_as<T: Copy>(slice: &[T]) -> &[u8] {
-    assert!(mem::size_of::<T>() > 0, "zero-sized types not supported");
+fn slice_as_u8<T: Copy>(slice: &[T]) -> &[u8] {
     unsafe { slice::from_raw_parts(slice.as_ptr() as *const u8, mem::size_of_val(slice)) }
-}
-
-fn into_vec_u8<T: Copy>(v: Vec<T>) -> Vec<u8> {
-    let t_size = mem::size_of::<T>();
-    if t_size == 0 {
-        return Vec::new();
-    }
-    let mut v = ManuallyDrop::new(v);
-    let ptr = v.as_mut_ptr() as *mut u8;
-    let len = v.len().checked_mul(t_size).expect("length overflow");
-    let cap = v.capacity().checked_mul(t_size).expect("capacity overflow");
-    unsafe { Vec::from_raw_parts(ptr, len, cap) }
 }
