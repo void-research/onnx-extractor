@@ -11,19 +11,19 @@ use crate::{Error, ModelProto, OnnxOperation, OnnxTensor, proto_adapter, type_pr
 
 /// Main ONNX model container
 pub struct OnnxModel {
-    pub tensors: HashMap<String, OnnxTensor>,
-    pub operations: Vec<OnnxOperation>,
-    pub inputs: Vec<String>,
-    pub outputs: Vec<String>,
-    pub ir_version: i64,
-    pub producer_name: String,
-    pub producer_version: String,
-    pub domain: String,
-    pub model_version: i64,
-    pub doc_string: String,
-    pub graph_name: String,
-    pub metadata: HashMap<String, String>,
-    pub opsets: HashMap<String, i64>,
+    tensors: HashMap<String, OnnxTensor>,
+    operations: Vec<OnnxOperation>,
+    inputs: Vec<String>,
+    outputs: Vec<String>,
+    ir_version: i64,
+    producer_name: String,
+    producer_version: String,
+    domain: String,
+    model_version: i64,
+    doc_string: String,
+    graph_name: String,
+    metadata: HashMap<String, String>,
+    opsets: HashMap<String, i64>,
 }
 
 impl OnnxModel {
@@ -174,6 +174,26 @@ impl OnnxModel {
         Ok(onnx_model)
     }
 
+    /// Get tensor information by name
+    pub fn get_tensor(&self, name: &str) -> Option<&OnnxTensor> {
+        self.tensors.get(name)
+    }
+
+    /// Get all operations in the model
+    pub fn operations(&self) -> &[OnnxOperation] {
+        &self.operations
+    }
+
+    /// Get names of model inputs
+    pub fn inputs(&self) -> &[String] {
+        &self.inputs
+    }
+
+    /// Get names of model outputs
+    pub fn outputs(&self) -> &[String] {
+        &self.outputs
+    }
+
     /// Get IR version
     pub fn ir_version(&self) -> i64 {
         self.ir_version
@@ -219,21 +239,16 @@ impl OnnxModel {
         &self.opsets
     }
 
-    /// Get tensor information by name
-    pub fn get_tensor(&self, name: &str) -> Option<&OnnxTensor> {
-        self.tensors.get(name)
-    }
-
     /// Get all operations of a specific type
     pub fn get_operations_by_type(&self, op_type: &str) -> impl Iterator<Item = &OnnxOperation> {
         self.operations
             .iter()
-            .filter(move |&op| op.op_type == op_type)
+            .filter(move |&op| op.op_type() == op_type)
     }
 
     /// Get operation by name
     pub fn get_operation(&self, name: &str) -> Option<&OnnxOperation> {
-        self.operations.iter().find(|op| op.name == name)
+        self.operations.iter().find(|op| op.name() == name)
     }
 
     /// Get all tensor names
@@ -245,7 +260,7 @@ impl OnnxModel {
     pub fn operation_types(&self) -> Vec<String> {
         let mut set: HashSet<&str> = HashSet::new();
         for op in &self.operations {
-            set.insert(op.op_type.as_str());
+            set.insert(op.op_type());
         }
         let mut op_types: Vec<String> = set.into_iter().map(|s| s.to_string()).collect();
         op_types.sort_unstable();
@@ -253,10 +268,10 @@ impl OnnxModel {
     }
 
     /// Count operations by type
-    pub fn count_operations_by_type(&self) -> HashMap<String, usize> {
+    pub fn count_operations_by_type(&self) -> HashMap<&str, usize> {
         let mut counts = HashMap::new();
         for op in &self.operations {
-            *counts.entry(op.op_type.clone()).or_insert(0) += 1;
+            *counts.entry(op.op_type()).or_insert(0) += 1;
         }
         counts
     }
@@ -297,12 +312,12 @@ impl OnnxModel {
         let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(op_count);
 
         for (idx, op) in self.operations.iter().enumerate() {
-            for out in &op.outputs {
+            for out in op.outputs() {
                 if !out.is_empty() {
                     producer.insert(out.as_str(), idx);
                 }
             }
-            for input in &op.inputs {
+            for input in op.inputs() {
                 if !input.is_empty() {
                     consumers.entry(input.as_str()).or_default().push(idx);
                 }
@@ -313,7 +328,7 @@ impl OnnxModel {
         let mut indegree = vec![0; op_count];
         for (idx, op) in self.operations.iter().enumerate() {
             let mut count = 0;
-            for input in &op.inputs {
+            for input in op.inputs() {
                 if !input.is_empty() && producer.contains_key(input.as_str()) {
                     count += 1;
                 }
@@ -335,7 +350,7 @@ impl OnnxModel {
             let op = &self.operations[idx];
             ordered.push(op);
 
-            for out in &op.outputs {
+            for out in op.outputs() {
                 if !out.is_empty()
                     && let Some(cons_list) = consumers.get(out.as_str())
                 {
@@ -380,12 +395,12 @@ impl OnnxModel {
         let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(op_count);
 
         for (idx, op) in self.operations.iter().enumerate() {
-            for out in &op.outputs {
+            for out in op.outputs() {
                 if !out.is_empty() {
                     producer.insert(out.as_str(), idx);
                 }
             }
-            for input in &op.inputs {
+            for input in op.inputs() {
                 if !input.is_empty() {
                     consumers.entry(input.as_str()).or_default().push(idx);
                 }
@@ -396,7 +411,7 @@ impl OnnxModel {
         let mut indegree = vec![0; op_count];
         for (idx, op) in self.operations.iter().enumerate() {
             let mut count = 0;
-            for input in &op.inputs {
+            for input in op.inputs() {
                 if !input.is_empty() && producer.contains_key(input.as_str()) {
                     count += 1;
                 }
@@ -415,7 +430,7 @@ impl OnnxModel {
         // sort ready ops: input consumers first
         ready_ops.sort_by_key(|&idx| {
             let op = &self.operations[idx];
-            let consumes_input = op.inputs.iter().any(|input| self.inputs.contains(input));
+            let consumes_input = op.inputs().iter().any(|input| self.inputs.contains(input));
             !consumes_input
         });
 
@@ -426,7 +441,7 @@ impl OnnxModel {
             let op = &self.operations[idx];
             ordered.push(op);
 
-            for out in &op.outputs {
+            for out in op.outputs() {
                 if !out.is_empty()
                     && let Some(cons_list) = consumers.get(out.as_str())
                 {
@@ -435,7 +450,7 @@ impl OnnxModel {
                         if indegree[cidx] == 0 {
                             let consumer_op = &self.operations[cidx];
                             let consumes_input = consumer_op
-                                .inputs
+                                .inputs()
                                 .iter()
                                 .any(|input| self.inputs.contains(input));
 
@@ -514,12 +529,12 @@ impl OnnxModel {
         for op in &self.operations {
             println!(
                 "  {} ({}): {} -> {}",
-                op.name,
-                op.op_type,
-                op.inputs.join(", "),
-                op.outputs.join(", ")
+                op.name(),
+                op.op_type(),
+                op.inputs().join(", "),
+                op.outputs().join(", ")
             );
-            if !op.attributes.is_empty() {
+            if !op.attribute_names().is_empty() {
                 println!("    Attributes: {:?}", op.attribute_names());
             }
         }

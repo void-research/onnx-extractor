@@ -23,21 +23,21 @@ model.print_summary();
 model.print_model_info();
 
 // Tensor access
-let tensor = model.get_tensor("input_name");
-let tensor_names = model.tensor_names();
-let inputs = model.get_input_tensors();
-let outputs = model.get_output_tensors();
-let weights = model.get_weight_tensors();
+let tensor = model.get_tensor("input_name"); // Returns Option<&OnnxTensor>
+let tensor_names = model.tensor_names(); // Iterator<Item = &String>
+let inputs = model.get_input_tensors(); // Iterator<Item = &OnnxTensor>
+let outputs = model.get_output_tensors(); // Iterator<Item = &OnnxTensor>
+let weights = model.get_weight_tensors(); // Iterator<Item = &OnnxTensor>
 
 // Operation access
-let operation = model.get_operation("op_name");
-let conv_ops = model.get_operations_by_type("Conv");
-let op_types = model.operation_types();
-let op_counts = model.count_operations_by_type();
+let operation = model.get_operation("op_name"); // Option<&OnnxOperation>
+let conv_ops = model.get_operations_by_type("Conv"); // Iterator<Item = &OnnxOperation>
+let op_types = model.operation_types(); // Vec<String>
+let op_counts = model.count_operations_by_type(); // HashMap<String, usize>
 
 // Execution order
-let topo_order = model.topological_order()?;
-let exec_order = model.execution_order()?;
+let topo_order = model.topological_order()?; // Result<Vec<&OnnxOperation>, Error>
+let exec_order = model.execution_order()?; // Result<Vec<&OnnxOperation>, Error>
 ```
 
 ## Tensor Functions
@@ -51,20 +51,14 @@ println!("Shape: {:?}", tensor.shape());
 println!("Data type: {:?}", tensor.data_type());
 
 // Borrow tensor data
-let tensor_data = tensor.data()?;
+let tensor_data = tensor.data()?; // Returns Result<TensorData<'_>, Error>
 println!("Data size: {} bytes", tensor_data.len());
 
-// Get data as byte slice
+// Get data as byte slice (concatenates if Strings has multiple elements)
 let bytes: Cow<'_, [u8]> = tensor_data.as_slice();
 
 // Consume tensor and get owned data zero-copy
-let owned_data = tensor.into_data()?;
-
-// Copy/interpret data as typed buffer (little-endian)
-let as_f32: Box<[f32]> = tensor.copy_data_as::<f32>()?;
-let as_f64: Box<[f64]> = tensor.copy_data_as::<f64>()?;
-let as_i32: Box<[i32]> = tensor.copy_data_as::<i32>()?;
-let as_u8: Box<[u8]> = tensor.copy_data_as::<u8>()?;
+let owned_data = tensor.into_data()?; // Returns Result<TensorData<'static>, Error>
 ```
 
 ### TensorData Variants
@@ -73,9 +67,9 @@ The `data()` and `into_data()` methods return a `TensorData` enum:
 
 ```rust
 pub enum TensorData<'a> {
-    /// Contiguous buffer from raw_data field, Arc-backed
+    /// Contiguous buffer from raw_data field or mmap, Arc-backed
     Raw(Bytes),
-    /// Reinterpreted numeric data from typed fields
+    /// Reinterpreted numeric data from typed fields (e.g. float_data)
     Numeric(Cow<'a, [u8]>),
     /// String tensor elements, each Arc-backed
     Strings(Vec<Bytes>),
@@ -88,15 +82,15 @@ pub enum TensorData<'a> {
 let op = model.get_operation("conv1").unwrap();
 
 // Basic info
-println!("Type: {}", op.op_type);
-println!("Inputs: {:?}", op.inputs);
-println!("Outputs: {:?}", op.outputs);
+println!("Type: {}", op.op_type());
+println!("Inputs: {:?}", op.inputs());
+println!("Outputs: {:?}", op.outputs());
 
 // Attribute access
-let kernel_size = op.get_ints_attribute("kernel_shape");
-let stride = op.get_int_attribute("stride");
-let activation = op.get_string_attribute("activation");
-let weight = op.get_float_attribute("alpha");
+let kernel_size = op.get_ints_attribute("kernel_shape"); // Option<&[i64]>
+let stride = op.get_int_attribute("stride"); // Option<i64>
+let activation = op.get_string_attribute("activation"); // Option<&str>
+let weight = op.get_float_attribute("alpha"); // Option<f32>
 
 // Properties
 let input_count = op.input_count();
@@ -114,7 +108,7 @@ Access the `DataType` enum for type checking:
 use onnx_extractor::DataType;
 
 let tensor = model.get_tensor("input").unwrap();
-match tensor.data_type {
+match tensor.data_type() {
     DataType::Float => println!("32-bit float"),
     DataType::Double => println!("64-bit float"),
     DataType::Int32 => println!("32-bit int"),
@@ -122,9 +116,9 @@ match tensor.data_type {
 }
 
 // Type properties
-let size = tensor.data_type.size_in_bytes();
-let is_float = tensor.data_type.is_float();
-let is_int = tensor.data_type.is_integer();
+let size = tensor.data_type().size_in_bytes(); // Option<usize>
+let is_float = tensor.data_type().is_float();
+let is_int = tensor.data_type().is_integer();
 ```
 
 ## External Data Support
@@ -161,7 +155,7 @@ This crate generates Rust types from the ONNX protobuf at build time using `pros
 
 ## Platform Notes
 
-- Byte and typed views assume little-endian platforms
+- Byte reinterpretation assumes little-endian platforms (standard for ONNX)
 - Raw tensor data follows the ONNX specification (IEEE 754 for floats, little-endian integers)
 
 ## License

@@ -91,13 +91,13 @@ pub(crate) fn operation_from_node_proto(mut node: NodeProto) -> Result<OnnxOpera
         }
     }
 
-    Ok(OnnxOperation {
-        name: node.name.take().unwrap_or_default(),
-        op_type: node.op_type.take().unwrap_or_default(),
-        inputs: node.input,
-        outputs: node.output,
+    Ok(OnnxOperation::new(
+        node.name.take().unwrap_or_default(),
+        node.op_type.take().unwrap_or_default(),
+        node.input,
+        node.output,
         attributes,
-    })
+    ))
 }
 
 /// Parse ONNX attribute into AttributeValue

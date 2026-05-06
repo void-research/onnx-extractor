@@ -9,10 +9,16 @@ fn load_mnist_model() {
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     // basic sanity checks
-    assert!(!model.inputs.is_empty(), "model should have inputs");
-    assert!(!model.outputs.is_empty(), "model should have outputs");
-    assert!(!model.operations.is_empty(), "model should have operations");
-    assert!(!model.tensors.is_empty(), "model should have tensors");
+    assert!(!model.inputs().is_empty(), "model should have inputs");
+    assert!(!model.outputs().is_empty(), "model should have outputs");
+    assert!(
+        !model.operations().is_empty(),
+        "model should have operations"
+    );
+    assert!(
+        model.tensor_names().next().is_some(),
+        "model should have tensors"
+    );
 }
 
 #[test]
@@ -45,8 +51,8 @@ fn test_operation_queries() {
     );
 
     // get_operation for a real op name
-    let first_op = &model.operations[0];
-    let found = model.get_operation(&first_op.name);
+    let first_op = &model.operations()[0];
+    let found = model.get_operation(first_op.name());
     assert!(
         found.is_some(),
         "get_operation should return the operation by name"
@@ -84,16 +90,16 @@ fn test_topological_order() {
     // ordering should include every operation exactly once
     assert_eq!(
         ordered.len(),
-        model.operations.len(),
+        model.operations().len(),
         "topological order should include all operations"
     );
 
     // all names in ordered should be found in the original ops
     let orig_names: std::collections::HashSet<&str> =
-        model.operations.iter().map(|o| o.name.as_str()).collect();
+        model.operations().iter().map(|o| o.name()).collect();
     for op in ordered {
         assert!(
-            orig_names.contains(op.name.as_str()),
+            orig_names.contains(op.name()),
             "ordered op should exist in original operations"
         );
     }
