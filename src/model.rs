@@ -1,6 +1,7 @@
 use memmap2::Mmap;
 use prost::Message;
 use prost::bytes::Bytes;
+use std::collections::hash_map::Drain;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -177,6 +178,23 @@ impl OnnxModel {
     /// Reference to all tensors
     pub fn tensors(&self) -> &HashMap<String, OnnxTensor> {
         &self.tensors
+    }
+
+    /// Consume the model and return the underlying tensor map.
+    pub fn into_tensors(self) -> HashMap<String, OnnxTensor> {
+        self.tensors
+    }
+
+    /// Pluck a single tensor out of the model by name, taking ownership.
+    /// This allows zero-copy extraction via OnnxTensor::into_data().
+    pub fn take_tensor(&mut self, name: &str) -> Option<OnnxTensor> {
+        self.tensors.remove(name)
+    }
+
+    /// Drain all tensors from the model, returning an iterator that takes ownership.
+    /// The model remains alive but its tensor storage is cleared.
+    pub fn drain_tensors(&mut self) -> Drain<'_, String, OnnxTensor> {
+        self.tensors.drain()
     }
 
     /// Get all operations in the model
