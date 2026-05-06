@@ -36,29 +36,45 @@ pub(crate) fn tensor_from_proto(
             ));
         }
     } else if let Some(raw) = tensor.raw_data.take() {
-        if !raw.is_empty() {
-            // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
-            Some(TensorDataLocation::Mmap(raw))
-        } else {
-            None
-        }
-    } else if !tensor.string_data.is_empty() {
-        Some(TensorDataLocation::MmapStrings(mem::take(
-            &mut tensor.string_data,
-        )))
-    } else if !tensor.float_data.is_empty() {
-        Some(TensorDataLocation::F32(mem::take(&mut tensor.float_data)))
-    } else if !tensor.double_data.is_empty() {
-        Some(TensorDataLocation::F64(mem::take(&mut tensor.double_data)))
-    } else if !tensor.int32_data.is_empty() {
-        Some(TensorDataLocation::I32(mem::take(&mut tensor.int32_data)))
-    } else if !tensor.int64_data.is_empty() {
-        Some(TensorDataLocation::I64(mem::take(&mut tensor.int64_data)))
-    } else if !tensor.uint64_data.is_empty() {
-        Some(TensorDataLocation::U64(mem::take(&mut tensor.uint64_data)))
+        // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
+        Some(TensorDataLocation::Mmap(raw))
     } else {
-        // Tensor has no data (e.g., graph inputs/outputs)
-        None
+        match data_type {
+            DataType::Undefined => None,
+            DataType::String => Some(TensorDataLocation::MmapStrings(mem::take(
+                &mut tensor.string_data,
+            ))),
+            DataType::Float | DataType::Complex64 => {
+                Some(TensorDataLocation::F32(mem::take(&mut tensor.float_data)))
+            }
+            DataType::Double | DataType::Complex128 => {
+                Some(TensorDataLocation::F64(mem::take(&mut tensor.double_data)))
+            }
+            DataType::Int64 => Some(TensorDataLocation::I64(mem::take(&mut tensor.int64_data))),
+            DataType::Uint32 | DataType::Uint64 => {
+                Some(TensorDataLocation::U64(mem::take(&mut tensor.uint64_data)))
+            }
+            DataType::Int32
+            | DataType::Int16
+            | DataType::Int8
+            | DataType::Int4
+            | DataType::Int2
+            | DataType::Uint16
+            | DataType::Uint8
+            | DataType::Uint4
+            | DataType::Uint2
+            | DataType::Bool
+            | DataType::Float16
+            | DataType::Bfloat16
+            | DataType::Float8e4m3fn
+            | DataType::Float8e4m3fnuz
+            | DataType::Float8e5m2
+            | DataType::Float8e5m2fnuz
+            | DataType::Float8e8m0
+            | DataType::Float4e2m1 => {
+                Some(TensorDataLocation::I32(mem::take(&mut tensor.int32_data)))
+            }
+        }
     };
 
     Ok(OnnxTensor::new(name, shape, data_type, data_location))
