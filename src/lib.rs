@@ -28,7 +28,7 @@
 //! model.print_model_info();
 //!
 //! // Access tensor information
-//! if let Some(tensor) = model.get_tensor("input") {
+//! if let Some(tensor) = model.tensors().get("input") {
 //!     println!("Input shape: {:?}", tensor.shape());
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())

@@ -16,7 +16,7 @@ fn load_mnist_model() {
         "model should have operations"
     );
     assert!(
-        model.tensor_names().next().is_some(),
+        model.tensors().keys().next().is_some(),
         "model should have tensors"
     );
 }
@@ -27,10 +27,10 @@ fn test_tensor_queries() {
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     // tensor names should be non-empty and get_tensor should return for the first one
-    let mut names = model.tensor_names();
+    let mut names = model.tensors().keys();
     let first_name = names.next().expect("tensor_names should not be empty");
     assert!(
-        model.get_tensor(first_name).is_some(),
+        model.tensors().get(first_name).is_some(),
         "get_tensor should find the tensor"
     );
 }
@@ -125,7 +125,8 @@ fn test_no_data_tensors_report_no_data() {
     let model = OnnxModel::load_from_file(&path).expect("Failed to load mnist model");
 
     let tensor = model
-        .get_tensor("ReLU114_Output_0")
+        .tensors()
+        .get("ReLU114_Output_0")
         .expect("ReLU114_Output_0 tensor should exist");
 
     assert!(

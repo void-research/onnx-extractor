@@ -174,9 +174,9 @@ impl OnnxModel {
         Ok(onnx_model)
     }
 
-    /// Get tensor information by name
-    pub fn get_tensor(&self, name: &str) -> Option<&OnnxTensor> {
-        self.tensors.get(name)
+    /// Reference to all tensors
+    pub fn tensors(&self) -> &HashMap<String, OnnxTensor> {
+        &self.tensors
     }
 
     /// Get all operations in the model
@@ -251,11 +251,6 @@ impl OnnxModel {
         self.operations.iter().find(|op| op.name() == name)
     }
 
-    /// Get all tensor names
-    pub fn tensor_names(&self) -> impl Iterator<Item = &String> {
-        self.tensors.keys()
-    }
-
     /// Get all operation types in the model
     pub fn operation_types(&self) -> Vec<String> {
         let mut set: HashSet<&str> = HashSet::new();
@@ -278,12 +273,14 @@ impl OnnxModel {
 
     /// Get input tensors
     pub fn get_input_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
-        self.inputs.iter().filter_map(|name| self.get_tensor(name))
+        self.inputs.iter().filter_map(|name| self.tensors.get(name))
     }
 
     /// Get output tensors
     pub fn get_output_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
-        self.outputs.iter().filter_map(|name| self.get_tensor(name))
+        self.outputs
+            .iter()
+            .filter_map(|name| self.tensors.get(name))
     }
 
     /// Get tensors with data (initialisers/weights)
