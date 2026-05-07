@@ -9,6 +9,8 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub(crate) enum TensorDataLocation {
+    /// No data associated with this tensor
+    None,
     /// Data is stored in an external file
     External(ExternalDataInfo),
     /// Raw data as a Bytes reference (mmap-backed when loaded from file)
@@ -23,67 +25,19 @@ pub(crate) enum TensorDataLocation {
     I32(Vec<i32>),
 }
 
-/// Container that safely preserves typed vector memory to avoid Undefined Behavior
-/// during deallocation, while providing a uniform `[u8]` interface.
-#[derive(Debug, Clone)]
-pub enum NumericData<'a> {
-    /// A read-only reference, usually created via `OnnxTensor::data()`.
-    Borrowed(&'a [u8]),
-    U8(Vec<u8>),
-    F32(Vec<f32>),
-    F64(Vec<f64>),
-    I32(Vec<i32>),
-    I64(Vec<i64>),
-    U64(Vec<u64>),
-}
-
-impl<'a> NumericData<'a> {
-    pub fn as_slice(&self) -> &[u8] {
-        match self {
-            Self::Borrowed(b) => b,
-            Self::U8(v) => v.as_slice(),
-            Self::F32(v) => slice_as_u8(v),
-            Self::F64(v) => slice_as_u8(v),
-            Self::I32(v) => slice_as_u8(v),
-            Self::I64(v) => slice_as_u8(v),
-            Self::U64(v) => slice_as_u8(v),
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.as_slice().len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.as_slice().is_empty()
-    }
-
-    /// Converts to a static owned lifetime.
-    ///
-    /// If this holds a `Borrowed` reference, it performs a deep copy.
-    /// If it already holds an owned vector, ownership is transferred.
-    pub fn into_owned(self) -> NumericData<'static> {
-        match self {
-            Self::Borrowed(b) => NumericData::U8(b.to_vec()),
-            Self::U8(v) => NumericData::U8(v),
-            Self::F32(v) => NumericData::F32(v),
-            Self::F64(v) => NumericData::F64(v),
-            Self::I32(v) => NumericData::I32(v),
-            Self::I64(v) => NumericData::I64(v),
-            Self::U64(v) => NumericData::U64(v),
-        }
-    }
-}
-
 /// Zero-copy tensor data
 #[derive(Debug, Clone)]
 pub enum TensorData<'a> {
-    /// Contiguous buffer from raw_data field, Arc-backed
+    /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
-    /// Reinterpreted numeric data from typed fields
-    Numeric(NumericData<'a>),
     /// String tensor elements, each Arc-backed
     Strings(Cow<'a, [Bytes]>),
+    /// Typed numeric data (memory taken from TensorProto or borrowed from model)
+    F32(Cow<'a, [f32]>),
+    F64(Cow<'a, [f64]>),
+    I32(Cow<'a, [i32]>),
+    I64(Cow<'a, [i64]>),
+    U64(Cow<'a, [u64]>),
 }
 
 impl<'a> TensorData<'a> {
@@ -94,8 +48,12 @@ impl<'a> TensorData<'a> {
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
-            TensorData::Numeric(num) => num.len(),
             TensorData::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
+            TensorData::F32(v) => v.len() * mem::size_of::<f32>(),
+            TensorData::F64(v) => v.len() * mem::size_of::<f64>(),
+            TensorData::I32(v) => v.len() * mem::size_of::<i32>(),
+            TensorData::I64(v) => v.len() * mem::size_of::<i64>(),
+            TensorData::U64(v) => v.len() * mem::size_of::<u64>(),
         }
     }
 
@@ -106,8 +64,12 @@ impl<'a> TensorData<'a> {
     pub fn is_empty(&self) -> bool {
         match self {
             TensorData::Raw(b) => b.is_empty(),
-            TensorData::Numeric(n) => n.is_empty(),
             TensorData::Strings(s) => s.is_empty(),
+            TensorData::F32(v) => v.is_empty(),
+            TensorData::F64(v) => v.is_empty(),
+            TensorData::I32(v) => v.is_empty(),
+            TensorData::I64(v) => v.is_empty(),
+            TensorData::U64(v) => v.is_empty(),
         }
     }
 
@@ -119,8 +81,12 @@ impl<'a> TensorData<'a> {
     pub fn into_owned(self) -> TensorData<'static> {
         match self {
             TensorData::Raw(b) => TensorData::Raw(b),
-            TensorData::Numeric(n) => TensorData::Numeric(n.into_owned()),
             TensorData::Strings(s) => TensorData::Strings(Cow::Owned(s.into_owned())),
+            TensorData::F32(v) => TensorData::F32(Cow::Owned(v.into_owned())),
+            TensorData::F64(v) => TensorData::F64(Cow::Owned(v.into_owned())),
+            TensorData::I32(v) => TensorData::I32(Cow::Owned(v.into_owned())),
+            TensorData::I64(v) => TensorData::I64(Cow::Owned(v.into_owned())),
+            TensorData::U64(v) => TensorData::U64(Cow::Owned(v.into_owned())),
         }
     }
 
@@ -131,7 +97,11 @@ impl<'a> TensorData<'a> {
     pub fn as_slice(&self) -> Cow<'_, [u8]> {
         match self {
             TensorData::Raw(b) => Cow::Borrowed(b.as_ref()),
-            TensorData::Numeric(n) => Cow::Borrowed(n.as_slice()),
+            TensorData::F32(v) => Cow::Borrowed(slice_as_u8(v)),
+            TensorData::F64(v) => Cow::Borrowed(slice_as_u8(v)),
+            TensorData::I32(v) => Cow::Borrowed(slice_as_u8(v)),
+            TensorData::I64(v) => Cow::Borrowed(slice_as_u8(v)),
+            TensorData::U64(v) => Cow::Borrowed(slice_as_u8(v)),
             TensorData::Strings(s) => {
                 if s.len() == 1 {
                     Cow::Borrowed(s[0].as_ref())
@@ -156,7 +126,7 @@ pub struct OnnxTensor {
     name: String,
     shape: Vec<i64>,
     data_type: DataType,
-    data_location: Option<TensorDataLocation>,
+    data: TensorDataLocation,
 }
 
 impl OnnxTensor {
@@ -164,29 +134,14 @@ impl OnnxTensor {
         name: String,
         shape: Vec<i64>,
         data_type: DataType,
-        data_location: Option<TensorDataLocation>,
+        data: TensorDataLocation,
     ) -> Self {
         OnnxTensor {
             name,
             shape,
             data_type,
-            data_location,
+            data,
         }
-    }
-
-    /// Tensor name
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Tensor shape dimensions
-    pub fn shape(&self) -> &[i64] {
-        &self.shape
-    }
-
-    /// Tensor data type
-    pub fn data_type(&self) -> DataType {
-        self.data_type
     }
 
     pub(crate) fn from_tensor_type(name: String, tensor_type: &Tensor) -> Result<Self, Error> {
@@ -216,63 +171,64 @@ impl OnnxTensor {
             name,
             shape,
             DataType::from_onnx_type(elem_type),
-            None,
+            TensorDataLocation::None,
         ))
+    }
+
+    /// Tensor name
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Tensor shape dimensions
+    pub fn shape(&self) -> &[i64] {
+        &self.shape
+    }
+
+    /// Tensor data type
+    pub fn data_type(&self) -> DataType {
+        self.data_type
     }
 
     /// Borrow tensor data
     ///
     /// Raw and Strings variants clone Arc pointers only, Numeric borrows directly.
-    /// Call into_owned on the result to detach from tensor lifetime.
-    /// For external data, this lazily loads the data from the external file.
     pub fn data(&self) -> Result<TensorData<'_>, Error> {
-        match &self.data_location {
-            Some(TensorDataLocation::External(external_info)) => {
+        match &self.data {
+            TensorDataLocation::External(external_info) => {
                 Ok(TensorData::Raw(external_info.load_data()?))
             }
-            Some(TensorDataLocation::Mmap(bytes)) => Ok(TensorData::Raw(bytes.clone())),
-            Some(TensorDataLocation::MmapStrings(strings)) => {
+            TensorDataLocation::Mmap(bytes) => Ok(TensorData::Raw(bytes.clone())),
+            TensorDataLocation::MmapStrings(strings) => {
                 Ok(TensorData::Strings(Cow::Borrowed(strings)))
             }
-            Some(TensorDataLocation::F32(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
-                slice_as_u8::<f32>(v),
-            ))),
-            Some(TensorDataLocation::F64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
-                slice_as_u8::<f64>(v),
-            ))),
-            Some(TensorDataLocation::I64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
-                slice_as_u8::<i64>(v),
-            ))),
-            Some(TensorDataLocation::U64(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
-                slice_as_u8::<u64>(v),
-            ))),
-            Some(TensorDataLocation::I32(v)) => Ok(TensorData::Numeric(NumericData::Borrowed(
-                slice_as_u8::<i32>(v),
-            ))),
-            None => Err(Error::MissingField("tensor data".to_string())),
+            TensorDataLocation::F32(v) => Ok(TensorData::F32(Cow::Borrowed(v))),
+            TensorDataLocation::F64(v) => Ok(TensorData::F64(Cow::Borrowed(v))),
+            TensorDataLocation::I64(v) => Ok(TensorData::I64(Cow::Borrowed(v))),
+            TensorDataLocation::U64(v) => Ok(TensorData::U64(Cow::Borrowed(v))),
+            TensorDataLocation::I32(v) => Ok(TensorData::I32(Cow::Borrowed(v))),
+            TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
 
     /// Consume tensor and return owned data
     ///
-    /// All variants returned with no borrowed references.
-    /// Numeric performs zero-copy reinterpretation from typed fields.
-    /// For external data, this lazily loads the data from the external file.
-    pub fn into_data(mut self) -> Result<TensorData<'static>, Error> {
-        match self.data_location.take() {
-            Some(TensorDataLocation::External(external_info)) => {
+    /// All variants returned with no borrowed references
+    pub fn into_data(self) -> Result<TensorData<'static>, Error> {
+        match self.data {
+            TensorDataLocation::External(external_info) => {
                 Ok(TensorData::Raw(external_info.load_data()?))
             }
-            Some(TensorDataLocation::Mmap(bytes)) => Ok(TensorData::Raw(bytes)),
-            Some(TensorDataLocation::MmapStrings(strings)) => {
+            TensorDataLocation::Mmap(bytes) => Ok(TensorData::Raw(bytes)),
+            TensorDataLocation::MmapStrings(strings) => {
                 Ok(TensorData::Strings(Cow::Owned(strings)))
             }
-            Some(TensorDataLocation::F32(v)) => Ok(TensorData::Numeric(NumericData::F32(v))),
-            Some(TensorDataLocation::F64(v)) => Ok(TensorData::Numeric(NumericData::F64(v))),
-            Some(TensorDataLocation::I64(v)) => Ok(TensorData::Numeric(NumericData::I64(v))),
-            Some(TensorDataLocation::U64(v)) => Ok(TensorData::Numeric(NumericData::U64(v))),
-            Some(TensorDataLocation::I32(v)) => Ok(TensorData::Numeric(NumericData::I32(v))),
-            None => Err(Error::MissingField("tensor data".to_string())),
+            TensorDataLocation::F32(v) => Ok(TensorData::F32(Cow::Owned(v))),
+            TensorDataLocation::F64(v) => Ok(TensorData::F64(Cow::Owned(v))),
+            TensorDataLocation::I64(v) => Ok(TensorData::I64(Cow::Owned(v))),
+            TensorDataLocation::U64(v) => Ok(TensorData::U64(Cow::Owned(v))),
+            TensorDataLocation::I32(v) => Ok(TensorData::I32(Cow::Owned(v))),
+            TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
 }

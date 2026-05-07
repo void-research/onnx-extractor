@@ -24,12 +24,12 @@ pub(crate) fn tensor_from_proto(
     let name = tensor.name.take().unwrap_or_default();
 
     // Determine data location (internal vs external vs mmap-backed raw)
-    let data_location = if !tensor.external_data.is_empty() {
+    let data = if !tensor.external_data.is_empty() {
         // Tensor has external data
         if let Some(loader) = external_data_loader {
             let external_info =
                 ExternalDataInfo::from_key_value_pairs(&tensor.external_data, loader)?;
-            Some(TensorDataLocation::External(external_info))
+            TensorDataLocation::External(external_info)
         } else {
             return Err(Error::InvalidModel(
                 "Tensor has external data but no external data loader was provided".to_string(),
@@ -37,22 +37,20 @@ pub(crate) fn tensor_from_proto(
         }
     } else if let Some(raw) = tensor.raw_data.take() {
         // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
-        Some(TensorDataLocation::Mmap(raw))
+        TensorDataLocation::Mmap(raw)
     } else {
         match data_type {
-            DataType::Undefined => None,
-            DataType::String => Some(TensorDataLocation::MmapStrings(mem::take(
-                &mut tensor.string_data,
-            ))),
+            DataType::Undefined => TensorDataLocation::None,
+            DataType::String => TensorDataLocation::MmapStrings(mem::take(&mut tensor.string_data)),
             DataType::Float | DataType::Complex64 => {
-                Some(TensorDataLocation::F32(mem::take(&mut tensor.float_data)))
+                TensorDataLocation::F32(mem::take(&mut tensor.float_data))
             }
             DataType::Double | DataType::Complex128 => {
-                Some(TensorDataLocation::F64(mem::take(&mut tensor.double_data)))
+                TensorDataLocation::F64(mem::take(&mut tensor.double_data))
             }
-            DataType::Int64 => Some(TensorDataLocation::I64(mem::take(&mut tensor.int64_data))),
+            DataType::Int64 => TensorDataLocation::I64(mem::take(&mut tensor.int64_data)),
             DataType::Uint32 | DataType::Uint64 => {
-                Some(TensorDataLocation::U64(mem::take(&mut tensor.uint64_data)))
+                TensorDataLocation::U64(mem::take(&mut tensor.uint64_data))
             }
             DataType::Int32
             | DataType::Int16
@@ -71,13 +69,11 @@ pub(crate) fn tensor_from_proto(
             | DataType::Float8e5m2
             | DataType::Float8e5m2fnuz
             | DataType::Float8e8m0
-            | DataType::Float4e2m1 => {
-                Some(TensorDataLocation::I32(mem::take(&mut tensor.int32_data)))
-            }
+            | DataType::Float4e2m1 => TensorDataLocation::I32(mem::take(&mut tensor.int32_data)),
         }
     };
 
-    Ok(OnnxTensor::new(name, shape, data_type, data_location))
+    Ok(OnnxTensor::new(name, shape, data_type, data))
 }
 
 /// Create OnnxOperation from ONNX NodeProto
