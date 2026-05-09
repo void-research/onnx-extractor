@@ -91,8 +91,8 @@ impl<'a> TensorDataRef<'a> {
         }
     }
 
-    /// Access as string elements if variant is Strings. Returns an error otherwise.
-    pub fn as_strings(&self) -> Result<&'a [Bytes], Error> {
+    /// Access the string elements if the variant is Strings. Returns an error otherwise.
+    pub fn strings(&self) -> Result<&'a [Bytes], Error> {
         match self {
             TensorDataRef::Strings(v) => Ok(v),
             _ => Err(Error::MissingField("tensor strings data".to_string())),
@@ -167,8 +167,8 @@ impl TensorData {
         }
     }
 
-    /// Access as string elements if variant is Strings. Returns an error otherwise.
-    pub fn as_strings(&self) -> Result<&[Bytes], Error> {
+    /// Access the string elements if the variant is Strings. Returns an error otherwise.
+    pub fn strings(&self) -> Result<&[Bytes], Error> {
         match self {
             TensorData::Strings(v) => Ok(v),
             _ => Err(Error::MissingField("tensor strings data".to_string())),
