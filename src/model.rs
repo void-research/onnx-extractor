@@ -186,7 +186,7 @@ impl OnnxModel {
     }
 
     /// Pluck a single tensor out of the model by name, taking ownership.
-    /// This allows zero-copy extraction via OnnxTensor::into_data().
+    /// This allows extraction via OnnxTensor::into_data().
     pub fn take_tensor(&mut self, name: &str) -> Option<OnnxTensor> {
         self.tensors.remove(name)
     }

@@ -24,7 +24,7 @@ pub(crate) enum TensorDataLocation {
     I32(Vec<i32>),
 }
 
-/// Zero-copy tensor data ref
+/// Zero-copy tensor data reference
 #[derive(Debug, Clone)]
 pub enum TensorDataRef<'a> {
     /// Contiguous buffer (mmap-backed or loaded)
@@ -99,7 +99,7 @@ impl<'a> TensorDataRef<'a> {
     }
 }
 
-/// Zero-copy tensor data
+/// Zero-copy owned tensor data
 #[derive(Debug, Clone)]
 pub enum TensorData {
     /// Contiguous buffer (mmap-backed or loaded)
