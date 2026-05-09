@@ -1,5 +1,4 @@
 use prost::bytes::Bytes;
-use std::borrow::Cow;
 use std::{mem, slice};
 
 use crate::{
@@ -25,22 +24,98 @@ pub(crate) enum TensorDataLocation {
     I32(Vec<i32>),
 }
 
-/// Zero-copy tensor data
+/// Zero-copy tensor data ref
 #[derive(Debug, Clone)]
-pub enum TensorData<'a> {
+pub enum TensorDataRef<'a> {
     /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
     /// String tensor elements, each Arc-backed
-    Strings(Cow<'a, [Bytes]>),
-    /// Typed numeric data (memory taken from TensorProto or borrowed from model)
-    F32(Cow<'a, [f32]>),
-    F64(Cow<'a, [f64]>),
-    I32(Cow<'a, [i32]>),
-    I64(Cow<'a, [i64]>),
-    U64(Cow<'a, [u64]>),
+    Strings(&'a [Bytes]),
+    /// Typed numeric data
+    F32(&'a [f32]),
+    F64(&'a [f64]),
+    I32(&'a [i32]),
+    I64(&'a [i64]),
+    U64(&'a [u64]),
 }
 
-impl<'a> TensorData<'a> {
+impl<'a> TensorDataRef<'a> {
+    /// Total byte length across all variants
+    ///
+    /// For Strings, returns sum of all string element bytes.
+    /// If all Strings are empty, returns 0.
+    pub fn len(&self) -> usize {
+        match self {
+            TensorDataRef::Raw(b) => b.len(),
+            TensorDataRef::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
+            TensorDataRef::F32(v) => mem::size_of_val(*v),
+            TensorDataRef::F64(v) => mem::size_of_val(*v),
+            TensorDataRef::I32(v) => mem::size_of_val(*v),
+            TensorDataRef::I64(v) => mem::size_of_val(*v),
+            TensorDataRef::U64(v) => mem::size_of_val(*v),
+        }
+    }
+
+    /// Returns true if data contains no elements
+    ///
+    /// For Raw and Numeric, equivalent to len equals zero.
+    /// For Strings, checks if vector is empty. Empty strings are still elements.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            TensorDataRef::Raw(b) => b.is_empty(),
+            TensorDataRef::Strings(s) => s.is_empty(),
+            TensorDataRef::F32(v) => v.is_empty(),
+            TensorDataRef::F64(v) => v.is_empty(),
+            TensorDataRef::I32(v) => v.is_empty(),
+            TensorDataRef::I64(v) => v.is_empty(),
+            TensorDataRef::U64(v) => v.is_empty(),
+        }
+    }
+
+    /// Get data as contiguous byte slice
+    ///
+    /// Raw and Numeric variants borrow directly.
+    /// Returns an error for the Strings variant as it would require concatenation and allocation.
+    pub fn as_slice(&self) -> Result<&[u8], Error> {
+        match self {
+            TensorDataRef::Raw(b) => Ok(b.as_ref()),
+            TensorDataRef::F32(v) => Ok(slice_as_u8(v)),
+            TensorDataRef::F64(v) => Ok(slice_as_u8(v)),
+            TensorDataRef::I32(v) => Ok(slice_as_u8(v)),
+            TensorDataRef::I64(v) => Ok(slice_as_u8(v)),
+            TensorDataRef::U64(v) => Ok(slice_as_u8(v)),
+            TensorDataRef::Strings(_) => Err(Error::Unsupported(
+                "String tensors cannot be accessed as a contiguous byte slice without allocation"
+                    .to_string(),
+            )),
+        }
+    }
+
+    /// Access as string elements if variant is Strings. Returns an error otherwise.
+    pub fn as_strings(&self) -> Result<&'a [Bytes], Error> {
+        match self {
+            TensorDataRef::Strings(v) => Ok(v),
+            _ => Err(Error::MissingField("tensor strings data".to_string())),
+        }
+    }
+}
+
+/// Zero-copy tensor data
+#[derive(Debug, Clone)]
+pub enum TensorData {
+    /// Contiguous buffer (mmap-backed or loaded)
+    Raw(Bytes),
+    /// String tensor elements, each Arc-backed
+    Strings(Vec<Bytes>),
+    /// Typed numeric data
+    F32(Vec<f32>),
+    F64(Vec<f64>),
+    I32(Vec<i32>),
+    I64(Vec<i64>),
+    U64(Vec<u64>),
+}
+
+impl TensorData {
     /// Total byte length across all variants
     ///
     /// For Strings, returns sum of all string element bytes.
@@ -73,49 +148,30 @@ impl<'a> TensorData<'a> {
         }
     }
 
-    /// Convert to owned data that can outlive the tensor
+    /// Get data as contiguous byte slice
     ///
-    /// This consumes self and returns data with no borrowed references.
-    /// Note that Numeric data will be copied if borrowed. For zero-copy owned data,
-    /// use OnnxTensor::into_data instead.
-    pub fn into_owned(self) -> TensorData<'static> {
+    /// Raw and Numeric variants borrow directly.
+    /// Returns an error for the Strings variant as it would require concatenation and allocation.
+    pub fn as_slice(&self) -> Result<&[u8], Error> {
         match self {
-            TensorData::Raw(b) => TensorData::Raw(b),
-            TensorData::Strings(s) => TensorData::Strings(Cow::Owned(s.into_owned())),
-            TensorData::F32(v) => TensorData::F32(Cow::Owned(v.into_owned())),
-            TensorData::F64(v) => TensorData::F64(Cow::Owned(v.into_owned())),
-            TensorData::I32(v) => TensorData::I32(Cow::Owned(v.into_owned())),
-            TensorData::I64(v) => TensorData::I64(Cow::Owned(v.into_owned())),
-            TensorData::U64(v) => TensorData::U64(Cow::Owned(v.into_owned())),
+            TensorData::Raw(b) => Ok(b.as_ref()),
+            TensorData::F32(v) => Ok(slice_as_u8(v)),
+            TensorData::F64(v) => Ok(slice_as_u8(v)),
+            TensorData::I32(v) => Ok(slice_as_u8(v)),
+            TensorData::I64(v) => Ok(slice_as_u8(v)),
+            TensorData::U64(v) => Ok(slice_as_u8(v)),
+            TensorData::Strings(_) => Err(Error::Unsupported(
+                "String tensors cannot be accessed as a contiguous byte slice without allocation"
+                    .to_string(),
+            )),
         }
     }
 
-    /// Get data as contiguous byte slice
-    ///
-    /// Raw and Numeric variants borrow directly. Strings with single element borrows,
-    /// multiple elements concatenate into owned Vec.
-    pub fn as_slice(&self) -> Cow<'_, [u8]> {
+    /// Access as string elements if variant is Strings. Returns an error otherwise.
+    pub fn as_strings(&self) -> Result<&[Bytes], Error> {
         match self {
-            TensorData::Raw(b) => Cow::Borrowed(b.as_ref()),
-            TensorData::F32(v) => Cow::Borrowed(slice_as_u8(v)),
-            TensorData::F64(v) => Cow::Borrowed(slice_as_u8(v)),
-            TensorData::I32(v) => Cow::Borrowed(slice_as_u8(v)),
-            TensorData::I64(v) => Cow::Borrowed(slice_as_u8(v)),
-            TensorData::U64(v) => Cow::Borrowed(slice_as_u8(v)),
-            TensorData::Strings(s) => {
-                if s.len() == 1 {
-                    Cow::Borrowed(s[0].as_ref())
-                } else if s.is_empty() {
-                    Cow::Borrowed(&[])
-                } else {
-                    let total = s.iter().map(|bytes| bytes.len()).sum();
-                    let mut vec = Vec::with_capacity(total);
-                    for bytes in s.as_ref() {
-                        vec.extend_from_slice(bytes);
-                    }
-                    Cow::Owned(vec)
-                }
-            }
+            TensorData::Strings(v) => Ok(v),
+            _ => Err(Error::MissingField("tensor strings data".to_string())),
         }
     }
 }
@@ -192,42 +248,40 @@ impl OnnxTensor {
 
     /// Borrow tensor data
     ///
-    /// Raw and Strings variants clone Arc pointers only, Numeric borrows directly.
-    pub fn data(&self) -> Result<TensorData<'_>, Error> {
+    /// - All variants are returned without copying the underlying tensor data.
+    /// - External data is loaded from disk if not already in memory.
+    pub fn data(&self) -> Result<TensorDataRef<'_>, Error> {
         match &self.data {
             TensorDataLocation::External(external_info) => {
-                Ok(TensorData::Raw(external_info.load_data()?))
+                Ok(TensorDataRef::Raw(external_info.load_data()?))
             }
-            TensorDataLocation::Mmap(bytes) => Ok(TensorData::Raw(bytes.clone())),
-            TensorDataLocation::MmapStrings(strings) => {
-                Ok(TensorData::Strings(Cow::Borrowed(strings)))
-            }
-            TensorDataLocation::F32(v) => Ok(TensorData::F32(Cow::Borrowed(v))),
-            TensorDataLocation::F64(v) => Ok(TensorData::F64(Cow::Borrowed(v))),
-            TensorDataLocation::I64(v) => Ok(TensorData::I64(Cow::Borrowed(v))),
-            TensorDataLocation::U64(v) => Ok(TensorData::U64(Cow::Borrowed(v))),
-            TensorDataLocation::I32(v) => Ok(TensorData::I32(Cow::Borrowed(v))),
+            TensorDataLocation::Mmap(bytes) => Ok(TensorDataRef::Raw(bytes.clone())),
+            TensorDataLocation::MmapStrings(strings) => Ok(TensorDataRef::Strings(strings)),
+            TensorDataLocation::F32(v) => Ok(TensorDataRef::F32(v)),
+            TensorDataLocation::F64(v) => Ok(TensorDataRef::F64(v)),
+            TensorDataLocation::I64(v) => Ok(TensorDataRef::I64(v)),
+            TensorDataLocation::U64(v) => Ok(TensorDataRef::U64(v)),
+            TensorDataLocation::I32(v) => Ok(TensorDataRef::I32(v)),
             TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
 
     /// Consume tensor and return owned data
     ///
-    /// All variants returned with no borrowed references
-    pub fn into_data(self) -> Result<TensorData<'static>, Error> {
+    /// - All variants are returned without copying the underlying tensor data.
+    /// - External data is loaded from disk if not already in memory.
+    pub fn into_data(self) -> Result<TensorData, Error> {
         match self.data {
             TensorDataLocation::External(external_info) => {
                 Ok(TensorData::Raw(external_info.load_data()?))
             }
             TensorDataLocation::Mmap(bytes) => Ok(TensorData::Raw(bytes)),
-            TensorDataLocation::MmapStrings(strings) => {
-                Ok(TensorData::Strings(Cow::Owned(strings)))
-            }
-            TensorDataLocation::F32(v) => Ok(TensorData::F32(Cow::Owned(v))),
-            TensorDataLocation::F64(v) => Ok(TensorData::F64(Cow::Owned(v))),
-            TensorDataLocation::I64(v) => Ok(TensorData::I64(Cow::Owned(v))),
-            TensorDataLocation::U64(v) => Ok(TensorData::U64(Cow::Owned(v))),
-            TensorDataLocation::I32(v) => Ok(TensorData::I32(Cow::Owned(v))),
+            TensorDataLocation::MmapStrings(strings) => Ok(TensorData::Strings(strings)),
+            TensorDataLocation::F32(v) => Ok(TensorData::F32(v)),
+            TensorDataLocation::F64(v) => Ok(TensorData::F64(v)),
+            TensorDataLocation::I64(v) => Ok(TensorData::I64(v)),
+            TensorDataLocation::U64(v) => Ok(TensorData::U64(v)),
+            TensorDataLocation::I32(v) => Ok(TensorData::I32(v)),
             TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
         }
     }
