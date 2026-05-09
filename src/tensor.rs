@@ -85,8 +85,7 @@ impl<'a> TensorDataRef<'a> {
             TensorDataRef::I64(v) => Ok(slice_as_u8(v)),
             TensorDataRef::U64(v) => Ok(slice_as_u8(v)),
             TensorDataRef::Strings(_) => Err(Error::Unsupported(
-                "String tensors cannot be accessed as a contiguous byte slice without allocation"
-                    .to_string(),
+                "String tensors cannot be accessed as a contiguous byte slice".to_string(),
             )),
         }
     }
@@ -161,8 +160,7 @@ impl TensorData {
             TensorData::I64(v) => Ok(slice_as_u8(v)),
             TensorData::U64(v) => Ok(slice_as_u8(v)),
             TensorData::Strings(_) => Err(Error::Unsupported(
-                "String tensors cannot be accessed as a contiguous byte slice without allocation"
-                    .to_string(),
+                "String tensors cannot be accessed as a contiguous byte slice".to_string(),
             )),
         }
     }
