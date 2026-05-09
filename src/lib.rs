@@ -9,13 +9,15 @@
 //!
 //! ## Zero-Copy Design
 //!
-//! `OnnxTensor::data()` borrows tensor data without copying the underlying bytes.
-//! Raw and Strings variants increment Arc refcounts, Numeric borrows directly.
+//! `OnnxTensor::data()` returns a `TensorDataRef` which borrows tensor data without copying:
+//! - Raw variants use shared ownership (`Bytes`)
+//! - Numeric variants borrow directly (`&[T]`)
+//! - Strings variants borrow elements (`&[Bytes]`)
 //!
-//! `OnnxTensor::into_data()` returns owned data:
-//! - Raw returns Arc-backed bytes
-//! - Numeric performs zero-copy reinterpretation from typed fields
-//! - Strings returns Arc-backed elements
+//! `OnnxTensor::into_data()` returns owned `TensorData` without copying:
+//! - Raw returns shared ownership (`Bytes`)
+//! - Numeric returns owned vectors (`Vec<T>`)
+//! - Strings returns owned vectors of shared elements (`Vec<Bytes>`)
 //!
 //! Endianness: Multi-byte interpretations assume little-endian platforms.
 //!
@@ -30,6 +32,10 @@
 //! // Access tensor information
 //! if let Some(tensor) = model.tensors().get("input") {
 //!     println!("Input shape: {:?}", tensor.shape());
+//!     let data = tensor.data()?;
+//!     if let Ok(bytes) = data.as_slice() {
+//!         println!("Data size: {} bytes", bytes.len());
+//!     }
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -56,5 +62,5 @@ pub use error::Error;
 pub use model::OnnxModel;
 pub use operation::OnnxOperation;
 pub use prost::bytes::Bytes;
-pub use tensor::{OnnxTensor, TensorData};
+pub use tensor::{OnnxTensor, TensorData, TensorDataRef};
 pub use types::{AttributeValue, DataType};
