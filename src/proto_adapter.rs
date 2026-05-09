@@ -99,18 +99,15 @@ pub(crate) fn operation_from_node_proto(mut node: NodeProto) -> Result<OnnxOpera
 
 /// Parse ONNX attribute into AttributeValue
 ///
-/// Strings are converted from `prost::bytes::Bytes` to `String` via UTF-8. For
-/// string arrays, we collect all entries; zero-copy is not possible due to the
-/// need to validate UTF-8 and represent as owned `String`.
+/// Strings and string arrays are stored as `prost::bytes::Bytes` to avoid
+/// mandatory UTF-8 validation during parsing. This allows zero-copy moves from
+/// the protobuf structure.
 pub(crate) fn parse_attribute_proto(mut attr: AttributeProto) -> Result<AttributeValue, Error> {
     let attr_type = attr.r#type.unwrap_or(0);
     match attr_type {
         1 => Ok(AttributeValue::Float(attr.f.take().unwrap_or(0.0))),
         2 => Ok(AttributeValue::Int(attr.i.take().unwrap_or(0))),
-        3 => {
-            let s = attr.s.take().unwrap_or_default();
-            Ok(AttributeValue::String(String::from_utf8(s.to_vec())?))
-        }
+        3 => Ok(AttributeValue::String(attr.s.take().unwrap_or_default())),
         4 => {
             if let Some(tensor) = attr.t.take() {
                 // Note: Tensor attributes don't have external data loader since they're inline
@@ -122,14 +119,7 @@ pub(crate) fn parse_attribute_proto(mut attr: AttributeProto) -> Result<Attribut
         }
         6 => Ok(AttributeValue::Floats(mem::take(&mut attr.floats))),
         7 => Ok(AttributeValue::Ints(mem::take(&mut attr.ints))),
-        8 => {
-            let strings_bytes = mem::take(&mut attr.strings);
-            let strings: Result<Vec<String>, Error> = strings_bytes
-                .into_iter()
-                .map(|s| String::from_utf8(s.to_vec()).map_err(Error::from))
-                .collect();
-            Ok(AttributeValue::Strings(strings?))
-        }
+        8 => Ok(AttributeValue::Strings(mem::take(&mut attr.strings))),
         _ => Err(Error::Unsupported(format!("attribute type: {}", attr_type))),
     }
 }

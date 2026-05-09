@@ -1,4 +1,5 @@
 use crate::tensor::OnnxTensor;
+use prost::bytes::Bytes;
 
 pub use crate::tensor_proto::DataType;
 
@@ -75,11 +76,11 @@ impl DataType {
 pub enum AttributeValue {
     Int(i64),
     Float(f32),
-    String(String),
+    String(Bytes),
     Tensor(Box<OnnxTensor>),
     Ints(Vec<i64>),
     Floats(Vec<f32>),
-    Strings(Vec<String>),
+    Strings(Vec<Bytes>),
 }
 
 impl AttributeValue {
@@ -99,8 +100,19 @@ impl AttributeValue {
         }
     }
 
-    /// Try to get string value
+    /// Try to get string value.
+    ///
+    /// This performs UTF-8 validation. Use `as_string_bytes` if you want to
+    /// avoid validation and compare bytes directly.
     pub fn as_string(&self) -> Option<&str> {
+        match self {
+            AttributeValue::String(s) => std::str::from_utf8(s).ok(),
+            _ => None,
+        }
+    }
+
+    /// Try to get raw bytes for a string attribute
+    pub fn as_string_bytes(&self) -> Option<&[u8]> {
         match self {
             AttributeValue::String(s) => Some(s),
             _ => None,
@@ -131,8 +143,22 @@ impl AttributeValue {
         }
     }
 
-    /// Try to get string array value
-    pub fn as_strings(&self) -> Option<&[String]> {
+    /// Try to get string array value as validated `&str` entries.
+    ///
+    /// This performs UTF-8 validation on each entry and collects them into a Vec.
+    /// Use `as_strings_bytes` if you want to avoid validation and allocation.
+    pub fn as_strings(&self) -> Option<Vec<&str>> {
+        match self {
+            AttributeValue::Strings(strings) => strings
+                .iter()
+                .map(|s| std::str::from_utf8(s).ok())
+                .collect(),
+            _ => None,
+        }
+    }
+
+    /// Try to get string array value as a slice of `Bytes`
+    pub fn as_strings_bytes(&self) -> Option<&[Bytes]> {
         match self {
             AttributeValue::Strings(strings) => Some(strings),
             _ => None,
