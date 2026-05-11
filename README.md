@@ -190,8 +190,7 @@ This crate generates Rust types from the ONNX protobuf at build time using `pros
 
 ## Platform Notes
 
-- Byte reinterpretation assumes little-endian platforms (standard for ONNX)
-- Raw tensor data follows the ONNX specification (IEEE 754 for floats, little-endian integers)
+- Endianness: Tensor data follows the raw byte representation as defined in the ONNX specification.
 
 ## License
 
