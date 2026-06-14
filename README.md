@@ -5,48 +5,51 @@ A tiny and lightweight ONNX model parser for extracting tensor shapes, operation
 ## Model Loading
 
 ```rust
-use onnx_extractor::OnnxModel;
+use onnx_extractor::Model;
 
 // Load from file (uses mmap)
-let model = OnnxModel::load_from_file("model.onnx")?;
+let model = Model::load_from_file("model.onnx")?;
 
 // Load from bytes
 let bytes = std::fs::read("model.onnx")?;
-let model = OnnxModel::load_from_bytes(bytes)?;
+let model = Model::load_from_bytes(bytes)?;
 ```
 
-## Model Functions
+## Model and Graph Functions
+
+Global metadata is accessed from the `Model` container, while graph structure and state is accessed via `model.graph()`.
 
 ```rust
 // Basic info
-model.print_summary();
 model.print_model_info();
 
-// Tensor access
-let tensor = model.tensors().get("input_name"); // Returns Option<&OnnxTensor>
-let tensor_names = model.tensors().keys(); // Iterator<Item = &String>
-let inputs = model.get_input_tensors(); // Iterator<Item = &OnnxTensor>
-let outputs = model.get_output_tensors(); // Iterator<Item = &OnnxTensor>
-let weights = model.get_weight_tensors(); // Iterator<Item = &OnnxTensor>
+let graph = model.graph();
 
-// Extracting a tensor (moves out of model so data can outlive it)
-let owned_tensor = model.take_tensor("weight"); // Option<OnnxTensor>
+// Tensor access
+let tensor = graph.tensors().get("input_name"); // Returns Option<&OnnxTensor>
+let tensor_names = graph.tensors().keys(); // Iterator<Item = &String>
+let inputs = graph.get_input_tensors(); // Iterator<Item = &OnnxTensor>
+let outputs = graph.get_output_tensors(); // Iterator<Item = &OnnxTensor>
+let weights = graph.get_weight_tensors(); // Iterator<Item = &OnnxTensor>
+
+// Extracting a tensor (moves out of graph so data can outlive it)
+// (Note: `model` must be declared as `mut model`)
+let owned_tensor = model.graph_mut().take_tensor("weight"); // Option<OnnxTensor>
 
 // Operation access
-let operation = model.get_operation("op_name"); // Option<&OnnxOperation>
-let conv_ops = model.get_operations_by_type("Conv"); // Iterator<Item = &OnnxOperation>
-let op_types = model.operation_types(); // Vec<String>
-let op_counts = model.count_operations_by_type(); // HashMap<&str, usize>
+let operation = graph.get_operation("op_name"); // Option<&OnnxOperation>
+let conv_ops = graph.get_operations_by_type("Conv"); // Iterator<Item = &OnnxOperation>
+let op_types = graph.operation_types(); // Vec<String>
+let op_counts = graph.count_operations_by_type(); // HashMap<&str, usize>
 
-// Execution order
-let topo_order = model.topological_order()?; // Result<Vec<&OnnxOperation>, Error>
-let exec_order = model.execution_order()?; // Result<Vec<&OnnxOperation>, Error>
+// Topological order
+let topo_order = graph.topological_order()?; // Result<Vec<&OnnxOperation>, Error>
 ```
 
 ## Tensor Functions
 
 ```rust
-let tensor = model.tensors().get("weight").unwrap();
+let tensor = model.graph().tensors().get("weight").unwrap();
 
 // Shape and type info
 println!("Name: {}", tensor.name());
@@ -75,7 +78,8 @@ if let TensorDataRef::F32(floats) = data_ref {
 
 // Consume tensor and get owned data
 // This allows the data to outlive the model itself
-if let Some(owned_tensor) = model.take_tensor("weight") {
+// (Note: `model` must be declared as `mut model`)
+if let Some(owned_tensor) = model.graph_mut().take_tensor("weight") {
     let owned_data = owned_tensor.into_data()?; // Returns Result<TensorData, Error>
 }
 ```
@@ -119,7 +123,7 @@ pub enum TensorData {
 ## Operation Functions
 
 ```rust
-let op = model.get_operation("conv1").unwrap();
+let op = model.graph().get_operation("conv1").unwrap();
 
 // Basic info
 println!("Type: {}", op.op_type());
@@ -134,6 +138,11 @@ if let Some(attr) = attributes.get("kernel_shape") {
 
 let stride = attributes.get("stride").and_then(|a| a.as_int()); // Option<i64>
 let activation = attributes.get("activation").and_then(|a| a.as_string()); // Option<&str>
+
+// Subgraph access (Control Flow subgraphs)
+if let Some(subgraph) = attributes.get("then_branch").and_then(|a| a.as_graph()) {
+    println!("Subgraph name: {}", subgraph.graph_name());
+}
 ```
 
 ## Data Types
@@ -143,7 +152,7 @@ Access the `DataType` enum for type checking:
 ```rust
 use onnx_extractor::DataType;
 
-let tensor = model.tensors().get("input").unwrap();
+let tensor = model.graph().tensors().get("input").unwrap();
 match tensor.data_type() {
     DataType::Float => println!("32-bit float"),
     DataType::Double => println!("64-bit float"),
@@ -163,12 +172,12 @@ ONNX models can store large tensor data in external files. This crate supports l
 
 ```rust
 // Load model with external data files
-let model = OnnxModel::load_from_file("large_model.onnx")?;
+let model = Model::load_from_file("large_model.onnx")?;
 
 // External data files (e.g., "large_model.onnx.data") are automatically discovered
 // and loaded lazily when tensor data is accessed
 
-let tensor = model.tensors().get("large_weight").unwrap();
+let tensor = model.graph().tensors().get("large_weight").unwrap();
 
 // Data is loaded from external file on first access and cached for subsequent use
 let data = tensor.data()?;

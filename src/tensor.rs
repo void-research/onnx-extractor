@@ -78,7 +78,7 @@ impl<'a> TensorDataRef<'a> {
     /// Returns an error for the Strings variant as it would require concatenation and allocation.
     pub fn as_slice(&self) -> Result<&[u8], Error> {
         match self {
-            TensorDataRef::Raw(b) => Ok(b.as_ref()),
+            TensorDataRef::Raw(b) => Ok(b),
             TensorDataRef::F32(v) => Ok(slice_as_u8(v)),
             TensorDataRef::F64(v) => Ok(slice_as_u8(v)),
             TensorDataRef::I32(v) => Ok(slice_as_u8(v)),
@@ -153,7 +153,7 @@ impl TensorData {
     /// Returns an error for the Strings variant as it would require concatenation and allocation.
     pub fn as_slice(&self) -> Result<&[u8], Error> {
         match self {
-            TensorData::Raw(b) => Ok(b.as_ref()),
+            TensorData::Raw(b) => Ok(b),
             TensorData::F32(v) => Ok(slice_as_u8(v)),
             TensorData::F64(v) => Ok(slice_as_u8(v)),
             TensorData::I32(v) => Ok(slice_as_u8(v)),

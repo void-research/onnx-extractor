@@ -1,3 +1,4 @@
+use crate::graph::Graph;
 use crate::tensor::OnnxTensor;
 use prost::bytes::Bytes;
 
@@ -78,9 +79,11 @@ pub enum AttributeValue {
     Float(f32),
     String(Bytes),
     Tensor(Box<OnnxTensor>),
+    Graph(Box<Graph>),
     Ints(Vec<i64>),
     Floats(Vec<f32>),
     Strings(Vec<Bytes>),
+    Graphs(Vec<Graph>),
 }
 
 impl AttributeValue {
@@ -122,7 +125,7 @@ impl AttributeValue {
     /// Try to get tensor value
     pub fn as_tensor(&self) -> Option<&OnnxTensor> {
         match self {
-            AttributeValue::Tensor(t) => Some(t.as_ref()),
+            AttributeValue::Tensor(t) => Some(t),
             _ => None,
         }
     }
@@ -161,6 +164,22 @@ impl AttributeValue {
     pub fn as_strings_bytes(&self) -> Option<&[Bytes]> {
         match self {
             AttributeValue::Strings(strings) => Some(strings),
+            _ => None,
+        }
+    }
+
+    /// Try to get graph value
+    pub fn as_graph(&self) -> Option<&Graph> {
+        match self {
+            AttributeValue::Graph(g) => Some(g),
+            _ => None,
+        }
+    }
+
+    /// Try to get graph array value
+    pub fn as_graphs(&self) -> Option<&[Graph]> {
+        match self {
+            AttributeValue::Graphs(graphs) => Some(graphs),
             _ => None,
         }
     }

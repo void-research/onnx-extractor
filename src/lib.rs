@@ -24,13 +24,13 @@
 //! ## Quick Start
 //!
 //! ```rust,no_run
-//! use onnx_extractor::OnnxModel;
+//! use onnx_extractor::Model;
 //!
-//! let model = OnnxModel::load_from_file("model.onnx")?;
+//! let model = Model::load_from_file("model.onnx")?;
 //! model.print_model_info();
 //!
 //! // Access tensor information
-//! if let Some(tensor) = model.tensors().get("input") {
+//! if let Some(tensor) = model.graph().tensors().get("input") {
 //!     println!("Input shape: {:?}", tensor.shape());
 //!     let data = tensor.data()?;
 //!     if let Ok(bytes) = data.as_slice() {
@@ -53,13 +53,15 @@ pub(crate) use onnx_generated::*;
 
 pub mod error;
 pub mod external_data;
+pub mod graph;
 pub mod model;
 pub mod operation;
 pub mod tensor;
 pub mod types;
 
 pub use error::Error;
-pub use model::OnnxModel;
+pub use graph::Graph;
+pub use model::Model;
 pub use operation::OnnxOperation;
 pub use prost::bytes::Bytes;
 pub use tensor::{OnnxTensor, TensorData, TensorDataRef};

@@ -1,5 +1,7 @@
+use crate::external_data::ExternalDataLoader;
 use crate::{AttributeValue, Error, NodeProto, proto_adapter};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Information about an ONNX operation/node
 #[derive(Debug)]
@@ -53,7 +55,10 @@ impl OnnxOperation {
     }
 
     /// Create OnnxOperation from ONNX NodeProto
-    pub(crate) fn from_node_proto(node: NodeProto) -> Result<Self, Error> {
-        proto_adapter::operation_from_node_proto(node)
+    pub(crate) fn from_node_proto(
+        node: NodeProto,
+        external_data_loader: Option<Arc<ExternalDataLoader>>,
+    ) -> Result<Self, Error> {
+        proto_adapter::operation_from_node_proto(node, external_data_loader)
     }
 }

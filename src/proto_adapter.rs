@@ -1,7 +1,7 @@
 use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
-    AttributeProto, AttributeValue, DataType, Error, NodeProto, OnnxOperation, OnnxTensor,
+    AttributeProto, AttributeValue, DataType, Error, Graph, NodeProto, OnnxOperation, OnnxTensor,
     TensorProto,
 };
 use std::{collections::HashMap, mem, sync::Arc};
@@ -77,12 +77,15 @@ pub(crate) fn tensor_from_proto(
 }
 
 /// Create OnnxOperation from ONNX NodeProto
-pub(crate) fn operation_from_node_proto(mut node: NodeProto) -> Result<OnnxOperation, Error> {
+pub(crate) fn operation_from_node_proto(
+    mut node: NodeProto,
+    external_data_loader: Option<Arc<ExternalDataLoader>>,
+) -> Result<OnnxOperation, Error> {
     let mut attributes = HashMap::new();
 
     for mut attr in node.attribute.drain(..) {
         let attr_name = attr.name.take().unwrap_or_default();
-        let value = parse_attribute_proto(attr)?;
+        let value = parse_attribute_proto(attr, external_data_loader.clone())?;
         if !attr_name.is_empty() {
             attributes.insert(attr_name, value);
         }
@@ -102,7 +105,10 @@ pub(crate) fn operation_from_node_proto(mut node: NodeProto) -> Result<OnnxOpera
 /// Strings and string arrays are stored as `prost::bytes::Bytes` to avoid
 /// mandatory UTF-8 validation during parsing. This allows zero-copy moves from
 /// the protobuf structure.
-pub(crate) fn parse_attribute_proto(mut attr: AttributeProto) -> Result<AttributeValue, Error> {
+pub(crate) fn parse_attribute_proto(
+    mut attr: AttributeProto,
+    external_data_loader: Option<Arc<ExternalDataLoader>>,
+) -> Result<AttributeValue, Error> {
     let attr_type = attr.r#type.unwrap_or(0);
     match attr_type {
         1 => Ok(AttributeValue::Float(attr.f.take().unwrap_or(0.0))),
@@ -117,9 +123,24 @@ pub(crate) fn parse_attribute_proto(mut attr: AttributeProto) -> Result<Attribut
                 Err(Error::MissingField("tensor attribute data".to_string()))
             }
         }
+        5 => {
+            if let Some(graph) = attr.g.take() {
+                let onnx_graph = Graph::from_proto(graph, external_data_loader)?;
+                Ok(AttributeValue::Graph(Box::new(onnx_graph)))
+            } else {
+                Err(Error::MissingField("graph attribute data".to_string()))
+            }
+        }
         6 => Ok(AttributeValue::Floats(mem::take(&mut attr.floats))),
         7 => Ok(AttributeValue::Ints(mem::take(&mut attr.ints))),
         8 => Ok(AttributeValue::Strings(mem::take(&mut attr.strings))),
+        10 => {
+            let mut graphs = Vec::new();
+            for graph in attr.graphs.drain(..) {
+                graphs.push(Graph::from_proto(graph, external_data_loader.clone())?);
+            }
+            Ok(AttributeValue::Graphs(graphs))
+        }
         _ => Err(Error::Unsupported(format!("attribute type: {}", attr_type))),
     }
 }
