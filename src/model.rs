@@ -88,7 +88,7 @@ impl OnnxModel {
             domain: model.domain.unwrap_or_default(),
             model_version: model.model_version.unwrap_or(0),
             doc_string: model.doc_string.unwrap_or_default(),
-            graph_name: graph.name.clone().unwrap_or_default(),
+            graph_name: graph.name.take().unwrap_or_default(),
             metadata,
             opsets,
         };
@@ -121,17 +121,15 @@ impl OnnxModel {
                 continue;
             }
 
-            // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs
+            // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
             if !onnx_model.tensors.contains_key(&name) {
                 onnx_model.inputs.push(name.clone());
-            }
-
-            if let Some(type_proto::Value::TensorType(tensor_type)) =
-                input.r#type.take().and_then(|t| t.value)
-                && !onnx_model.tensors.contains_key(&name)
-            {
-                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
-                onnx_model.tensors.insert(name, onnx_tensor);
+                if let Some(type_proto::Value::TensorType(tensor_type)) =
+                    input.r#type.take().and_then(|t| t.value)
+                {
+                    let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                    onnx_model.tensors.insert(name, onnx_tensor);
+                }
             }
         }
 
@@ -157,9 +155,9 @@ impl OnnxModel {
 
             onnx_model.outputs.push(name.clone());
 
-            if let Some(type_proto::Value::TensorType(tensor_type)) =
-                output.r#type.take().and_then(|t| t.value)
-                && !onnx_model.tensors.contains_key(&name)
+            if !onnx_model.tensors.contains_key(&name)
+                && let Some(type_proto::Value::TensorType(tensor_type)) =
+                    output.r#type.take().and_then(|t| t.value)
             {
                 let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
                 onnx_model.tensors.insert(name, onnx_tensor);
