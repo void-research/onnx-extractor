@@ -86,9 +86,7 @@ pub(crate) fn operation_from_node_proto(
     for mut attr in node.attribute.drain(..) {
         let attr_name = attr.name.take().unwrap_or_default();
         let value = parse_attribute_proto(attr, external_data_loader)?;
-        if !attr_name.is_empty() {
-            attributes.insert(attr_name, value);
-        }
+        attributes.insert(attr_name, value);
     }
 
     Ok(OnnxOperation::new(

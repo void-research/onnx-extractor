@@ -39,7 +39,7 @@ let owned_tensor = model.graph_mut().take_tensor("weight"); // Option<OnnxTensor
 // Operation access
 let operation = graph.get_operation("op_name"); // Option<&OnnxOperation>
 let conv_ops = graph.get_operations_by_type("Conv"); // Iterator<Item = &OnnxOperation>
-let op_types = graph.operation_types(); // Vec<String>
+let op_types = graph.operation_types(); // Box<[&str]>
 let op_counts = graph.count_operations_by_type(); // HashMap<&str, usize>
 
 // Topological order

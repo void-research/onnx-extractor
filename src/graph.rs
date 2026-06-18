@@ -45,17 +45,12 @@ impl Graph {
         for tensor in graph.initializer.drain(..) {
             let onnx_tensor = proto_adapter::tensor_from_proto(tensor, &external_data_loader)?;
             let tensor_name = onnx_tensor.name().to_string();
-            if !tensor_name.is_empty() {
-                onnx_graph.tensors.insert(tensor_name, onnx_tensor);
-            }
+            onnx_graph.tensors.insert(tensor_name, onnx_tensor);
         }
 
         // Parse input tensor info and extract input names
         for mut input in graph.input.drain(..) {
             let name = input.name.take().unwrap_or_default();
-            if name.is_empty() {
-                continue;
-            }
 
             // If the name is already in tensors, it's an initializer, so we skip adding it to inputs/tensors
             if !onnx_graph.tensors.contains_key(&name) {
@@ -87,9 +82,6 @@ impl Graph {
         // Parse output tensor info and extract output names
         for mut output in graph.output.drain(..) {
             let name = output.name.take().unwrap_or_default();
-            if name.is_empty() {
-                continue;
-            }
 
             if !onnx_graph.tensors.contains_key(&name)
                 && let Some(type_proto::Value::TensorType(tensor_type)) =
@@ -167,12 +159,12 @@ impl Graph {
     }
 
     /// Get all operation types in this graph
-    pub fn operation_types(&self) -> Box<[String]> {
+    pub fn operation_types(&self) -> Box<[&str]> {
         let mut set: HashSet<&str> = HashSet::new();
         for op in &self.operations {
             set.insert(op.op_type());
         }
-        let mut op_types: Box<[String]> = set.into_iter().map(|s| s.to_string()).collect();
+        let mut op_types: Box<[&str]> = set.into_iter().collect();
         op_types.sort_unstable();
         op_types
     }
