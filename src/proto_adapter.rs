@@ -132,6 +132,12 @@ pub(crate) fn parse_attribute_proto(
         6 => Ok(AttributeValue::Floats(mem::take(&mut attr.floats))),
         7 => Ok(AttributeValue::Ints(mem::take(&mut attr.ints))),
         8 => Ok(AttributeValue::Strings(mem::take(&mut attr.strings))),
+        9 => Ok(AttributeValue::Tensors(
+            attr.tensors
+                .drain(..)
+                .map(|tensor| tensor_from_proto(tensor, external_data_loader))
+                .collect::<Result<Box<[OnnxTensor]>, Error>>()?,
+        )),
         10 => Ok(AttributeValue::Graphs(
             attr.graphs
                 .drain(..)

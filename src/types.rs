@@ -75,30 +75,31 @@ impl DataType {
 /// ONNX attribute values
 #[derive(Debug)]
 pub enum AttributeValue {
-    Int(i64),
     Float(f32),
+    Int(i64),
     String(Bytes),
     Tensor(Box<OnnxTensor>),
     Graph(Box<Graph>),
-    Ints(Vec<i64>),
     Floats(Vec<f32>),
+    Ints(Vec<i64>),
     Strings(Vec<Bytes>),
+    Tensors(Box<[OnnxTensor]>),
     Graphs(Box<[Graph]>),
 }
 
 impl AttributeValue {
-    /// Try to get integer value
-    pub fn as_int(&self) -> Option<i64> {
-        match self {
-            AttributeValue::Int(i) => Some(*i),
-            _ => None,
-        }
-    }
-
     /// Try to get float value
     pub fn as_float(&self) -> Option<f32> {
         match self {
             AttributeValue::Float(f) => Some(*f),
+            _ => None,
+        }
+    }
+
+    /// Try to get integer value
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            AttributeValue::Int(i) => Some(*i),
             _ => None,
         }
     }
@@ -130,10 +131,10 @@ impl AttributeValue {
         }
     }
 
-    /// Try to get integer array value
-    pub fn as_ints(&self) -> Option<&[i64]> {
+    /// Try to get graph value
+    pub fn as_graph(&self) -> Option<&Graph> {
         match self {
-            AttributeValue::Ints(ints) => Some(ints),
+            AttributeValue::Graph(g) => Some(g),
             _ => None,
         }
     }
@@ -142,6 +143,14 @@ impl AttributeValue {
     pub fn as_floats(&self) -> Option<&[f32]> {
         match self {
             AttributeValue::Floats(floats) => Some(floats),
+            _ => None,
+        }
+    }
+
+    /// Try to get integer array value
+    pub fn as_ints(&self) -> Option<&[i64]> {
+        match self {
+            AttributeValue::Ints(ints) => Some(ints),
             _ => None,
         }
     }
@@ -168,10 +177,10 @@ impl AttributeValue {
         }
     }
 
-    /// Try to get graph value
-    pub fn as_graph(&self) -> Option<&Graph> {
+    /// Try to get tensor array value
+    pub fn as_tensors(&self) -> Option<&[OnnxTensor]> {
         match self {
-            AttributeValue::Graph(g) => Some(g),
+            AttributeValue::Tensors(tensors) => Some(tensors),
             _ => None,
         }
     }
