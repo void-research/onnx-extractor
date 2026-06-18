@@ -27,7 +27,7 @@
 //! use onnx_extractor::Model;
 //!
 //! let model = Model::load_from_file("model.onnx")?;
-//! model.print_model_info();
+//! println!("{}", model);
 //!
 //! // Access tensor information
 //! if let Some(tensor) = model.graph().tensors().get("input") {

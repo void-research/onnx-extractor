@@ -283,33 +283,36 @@ impl Graph {
         }
     }
 
-    /// Print local graph information (non-recursive)
-    pub fn print_graph_info(&self) {
-        self.print_graph_info_recursive(0, false);
-    }
-
-    /// Print graph information, optionally printing subgraphs recursively
-    pub(crate) fn print_graph_info_recursive(&self, indent_level: usize, recursive: bool) {
+    /// Format graph information recursively
+    pub(crate) fn format_recursive(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        indent_level: usize,
+    ) -> std::fmt::Result {
         let indent = "  ".repeat(indent_level);
         let weight_count = self.get_weight_tensors().count();
         let op_counts = self.count_operations_by_type();
-        println!("{}=== ONNX Graph: {} ===", indent, self.name);
-        println!(
+        writeln!(f, "{}ONNX Graph: {}", indent, self.name)?;
+        writeln!(
+            f,
             "{}Inputs: {} | Outputs: {} | Operations: {} | Tensors: {}",
             indent,
             self.inputs.len(),
             self.outputs.len(),
             self.operations.len(),
             self.tensors.len()
-        );
-        println!("{}Operation types: {:?}", indent, op_counts);
-        println!("{}Weight tensors: {}", indent, weight_count);
-        println!("{}Input Names: {:?}", indent, self.inputs);
-        println!("{}Output Names: {:?}", indent, self.outputs);
+        )?;
 
-        println!("\n{}=== Tensors ({}) ===", indent, self.tensors.len());
+        writeln!(f, "{}Operation types: {:?}", indent, op_counts)?;
+
+        writeln!(f, "{}Weight tensors: {}", indent, weight_count)?;
+        writeln!(f, "{}Input Names: {:?}", indent, self.inputs)?;
+        writeln!(f, "{}Output Names: {:?}", indent, self.outputs)?;
+
+        writeln!(f, "\n{}Tensors ({}):", indent, self.tensors.len())?;
         for (name, tensor) in &self.tensors {
-            println!(
+            writeln!(
+                f,
                 "{}  {}: {:?} ({:?}) [{}{}]",
                 indent,
                 name,
@@ -327,51 +330,59 @@ impl Graph {
                 } else {
                     ""
                 }
-            );
+            )?;
         }
 
-        println!("\n{}=== Operations ({}) ===", indent, self.operations.len());
-        let op_counts = self.count_operations_by_type();
+        writeln!(f, "\n{}Operations ({}):", indent, self.operations.len())?;
         for (op_type, count) in &op_counts {
-            println!("{}  {}: {} operations", indent, op_type, count);
+            writeln!(f, "{}  {}: {} operations", indent, op_type, count)?;
         }
 
-        println!("\n{}=== Operation Details ===", indent);
+        writeln!(f, "\n{}Operation Details:", indent)?;
         for op in &self.operations {
-            println!(
+            writeln!(
+                f,
                 "{}  {} ({}): {} -> {}",
                 indent,
                 op.name(),
                 op.op_type(),
                 op.inputs().join(", "),
                 op.outputs().join(", ")
-            );
+            )?;
             if !op.attributes().is_empty() {
-                println!("{}    Attributes: {:?}", indent, op.attributes().keys());
-                if recursive {
-                    for (attr_name, attr_val) in op.attributes() {
-                        match attr_val {
-                            AttributeValue::Graph(subgraph) => {
-                                println!("{}      Attribute '{}' (Subgraph):", indent, attr_name);
-                                subgraph.print_graph_info_recursive(indent_level + 4, true);
-                            }
-                            AttributeValue::Graphs(subgraphs) => {
-                                println!(
-                                    "{}      Attribute '{}' (Subgraphs [{}]):",
-                                    indent,
-                                    attr_name,
-                                    subgraphs.len()
-                                );
-                                for (sub_idx, subgraph) in subgraphs.iter().enumerate() {
-                                    println!("{}        [{}] Subgraph:", indent, sub_idx);
-                                    subgraph.print_graph_info_recursive(indent_level + 6, true);
-                                }
-                            }
-                            _ => {}
+                let attr_keys: Vec<_> = op.attributes().keys().collect();
+                writeln!(f, "{}    Attributes: {:?}", indent, attr_keys)?;
+
+                for (attr_name, attr_val) in op.attributes() {
+                    match attr_val {
+                        AttributeValue::Graph(subgraph) => {
+                            writeln!(f, "{}      Attribute '{}' (Subgraph):", indent, attr_name)?;
+                            subgraph.format_recursive(f, indent_level + 4)?;
                         }
+                        AttributeValue::Graphs(subgraphs) => {
+                            writeln!(
+                                f,
+                                "{}      Attribute '{}' (Subgraphs [{}]):",
+                                indent,
+                                attr_name,
+                                subgraphs.len()
+                            )?;
+                            for (sub_idx, subgraph) in subgraphs.iter().enumerate() {
+                                writeln!(f, "{}        [{}] Subgraph:", indent, sub_idx)?;
+                                subgraph.format_recursive(f, indent_level + 6)?;
+                            }
+                        }
+                        _ => {}
                     }
                 }
             }
         }
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for Graph {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.format_recursive(f, 0)
     }
 }

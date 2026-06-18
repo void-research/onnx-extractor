@@ -21,7 +21,7 @@ Global metadata is accessed from the `Model` container, while graph structure an
 
 ```rust
 // Basic info
-model.print_model_info();
+println!("{}", model);
 
 let graph = model.graph();
 

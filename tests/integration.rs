@@ -147,3 +147,19 @@ fn test_no_data_tensors_report_no_data() {
         "ReLU114_Output_0 should not have embedded data and data() must error"
     );
 }
+
+#[test]
+fn test_display_trait() {
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
+    let model = Model::load_from_file(&path).expect("Failed to load mnist model");
+
+    let model_display = format!("{}", model);
+    assert!(model_display.contains("ONNX Model Information:"));
+    assert!(model_display.contains("Producer Name:"));
+    assert!(model_display.contains("ONNX Graph:"));
+    assert!(model_display.contains("Inputs:"));
+
+    let graph_display = format!("{}", model.graph());
+    assert!(graph_display.contains("ONNX Graph:"));
+    assert!(graph_display.contains("Inputs:"));
+}

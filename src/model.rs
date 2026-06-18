@@ -139,27 +139,21 @@ impl Model {
     pub fn opsets(&self) -> &HashMap<String, i64> {
         &self.opsets
     }
+}
 
-    /// Print comprehensive model information and recursive graph tree
-    pub fn print_model_info(&self) {
-        println!("=== ONNX Model Information ===");
-        println!(
-            "Producer: {} v{} (IR v{}, Domain: {})",
-            self.producer_name, self.producer_version, self.ir_version, self.domain
-        );
-        println!("Model Version: {}", self.model_version,);
+impl std::fmt::Display for Model {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "ONNX Model Information:")?;
+        writeln!(f, "IR Version: {}", self.ir_version)?;
+        writeln!(f, "Producer Name: {}", self.producer_name)?;
+        writeln!(f, "Producer Version: {}", self.producer_version)?;
+        writeln!(f, "Domain: {}", self.domain)?;
+        writeln!(f, "Model Version: {}", self.model_version)?;
+        writeln!(f, "Description: {}", self.doc_string)?;
+        writeln!(f, "Metadata: {:?}", self.metadata)?;
+        writeln!(f, "Opsets: {:?}", self.opsets)?;
 
-        if !self.doc_string.is_empty() {
-            println!("Description: {}", self.doc_string);
-        }
-        if !self.metadata.is_empty() {
-            println!("Metadata: {:?}", self.metadata);
-        }
-        if !self.opsets.is_empty() {
-            println!("Opset Imports: {:?}", self.opsets);
-        }
-
-        println!("\nRoot Graph & Subgraph Details:");
-        self.graph.print_graph_info_recursive(0, true);
+        writeln!(f, "\nRoot Graph & Subgraph Details:")?;
+        write!(f, "{}", self.graph)
     }
 }
