@@ -1,5 +1,5 @@
 use crate::graph::Graph;
-use crate::tensor::OnnxTensor;
+use crate::tensor::Tensor;
 use prost::bytes::Bytes;
 
 pub use crate::tensor_proto::DataType;
@@ -78,12 +78,12 @@ pub enum AttributeValue {
     Float(f32),
     Int(i64),
     String(Bytes),
-    Tensor(Box<OnnxTensor>),
+    Tensor(Box<Tensor>),
     Graph(Box<Graph>),
     Floats(Vec<f32>),
     Ints(Vec<i64>),
     Strings(Vec<Bytes>),
-    Tensors(Box<[OnnxTensor]>),
+    Tensors(Box<[Tensor]>),
     Graphs(Box<[Graph]>),
 }
 
@@ -124,7 +124,7 @@ impl AttributeValue {
     }
 
     /// Try to get tensor value
-    pub fn as_tensor(&self) -> Option<&OnnxTensor> {
+    pub fn as_tensor(&self) -> Option<&Tensor> {
         match self {
             AttributeValue::Tensor(t) => Some(t),
             _ => None,
@@ -178,7 +178,7 @@ impl AttributeValue {
     }
 
     /// Try to get tensor array value
-    pub fn as_tensors(&self) -> Option<&[OnnxTensor]> {
+    pub fn as_tensors(&self) -> Option<&[Tensor]> {
         match self {
             AttributeValue::Tensors(tensors) => Some(tensors),
             _ => None,

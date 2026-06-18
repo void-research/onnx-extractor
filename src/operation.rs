@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 /// Information about an ONNX operation/node
 #[derive(Debug)]
-pub struct OnnxOperation {
+pub struct Operation {
     name: String,
     op_type: String,
     inputs: Vec<String>,
@@ -13,7 +13,7 @@ pub struct OnnxOperation {
     attributes: HashMap<String, AttributeValue>,
 }
 
-impl OnnxOperation {
+impl Operation {
     pub(crate) fn new(
         name: String,
         op_type: String,
@@ -21,7 +21,7 @@ impl OnnxOperation {
         outputs: Vec<String>,
         attributes: HashMap<String, AttributeValue>,
     ) -> Self {
-        OnnxOperation {
+        Operation {
             name,
             op_type,
             inputs,

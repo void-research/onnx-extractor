@@ -9,12 +9,12 @@
 //!
 //! ## Zero-Copy Design
 //!
-//! `OnnxTensor::data()` returns a `TensorDataRef` which borrows tensor data without copying:
+//! `Tensor::data()` returns a `TensorDataRef` which borrows tensor data without copying:
 //! - Raw variants use shared ownership (`Bytes`)
 //! - Numeric variants borrow directly (`&[T]`)
 //! - Strings variants borrow elements (`&[Bytes]`)
 //!
-//! `OnnxTensor::into_data()` returns owned `TensorData` without copying:
+//! `Tensor::into_data()` returns owned `TensorData` without copying:
 //! - Raw returns shared ownership (`Bytes`)
 //! - Numeric returns owned vectors (`Vec<T>`)
 //! - Strings returns owned vectors of shared elements (`Vec<Bytes>`)
@@ -62,7 +62,7 @@ pub mod types;
 pub use error::Error;
 pub use graph::Graph;
 pub use model::Model;
-pub use operation::OnnxOperation;
+pub use operation::Operation;
 pub use prost::bytes::Bytes;
-pub use tensor::{OnnxTensor, TensorData, TensorDataRef};
+pub use tensor::{Tensor, TensorData, TensorDataRef};
 pub use types::{AttributeValue, DataType};

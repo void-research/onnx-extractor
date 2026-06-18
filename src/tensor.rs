@@ -3,7 +3,7 @@ use std::{mem, slice};
 
 use crate::{
     DataType, Error, external_data::ExternalDataInfo, tensor_shape_proto::dimension::Value,
-    type_proto::Tensor,
+    type_proto::Tensor as ProtoTensor,
 };
 
 #[derive(Debug, Clone)]
@@ -176,21 +176,21 @@ impl TensorData {
 
 /// Information about an ONNX tensor
 #[derive(Debug)]
-pub struct OnnxTensor {
+pub struct Tensor {
     name: String,
     shape: Vec<i64>,
     data_type: DataType,
     data: TensorDataLocation,
 }
 
-impl OnnxTensor {
+impl Tensor {
     pub(crate) fn new(
         name: String,
         shape: Vec<i64>,
         data_type: DataType,
         data: TensorDataLocation,
     ) -> Self {
-        OnnxTensor {
+        Tensor {
             name,
             shape,
             data_type,
@@ -198,7 +198,7 @@ impl OnnxTensor {
         }
     }
 
-    pub(crate) fn from_tensor_type(name: String, tensor_type: &Tensor) -> Result<Self, Error> {
+    pub(crate) fn from_tensor_type(name: String, tensor_type: &ProtoTensor) -> Result<Self, Error> {
         let shape = if let Some(shape_proto) = &tensor_type.shape {
             shape_proto
                 .dim
@@ -221,7 +221,7 @@ impl OnnxTensor {
             ));
         }
 
-        Ok(OnnxTensor::new(
+        Ok(Tensor::new(
             name,
             shape,
             DataType::from_onnx_type(elem_type),

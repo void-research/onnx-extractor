@@ -3,16 +3,14 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
-use crate::{
-    AttributeValue, Error, GraphProto, OnnxOperation, OnnxTensor, proto_adapter, type_proto,
-};
+use crate::{AttributeValue, Error, GraphProto, Operation, Tensor, proto_adapter, type_proto};
 
 /// Represents a computational graph in an ONNX model (either the root graph or a nested subgraph)
 #[derive(Debug)]
 pub struct Graph {
     name: String,
-    tensors: HashMap<String, OnnxTensor>,
-    operations: Vec<OnnxOperation>,
+    tensors: HashMap<String, Tensor>,
+    operations: Vec<Operation>,
     inputs: Vec<String>,
     outputs: Vec<String>,
 }
@@ -58,7 +56,7 @@ impl Graph {
                     input.r#type.take().and_then(|t| t.value)
                 {
                     onnx_graph.inputs.push(name.clone());
-                    let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                    let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
                     onnx_graph.tensors.insert(name, onnx_tensor);
                 } else {
                     onnx_graph.inputs.push(name);
@@ -73,7 +71,7 @@ impl Graph {
             {
                 let name = value_info.name.take().unwrap_or_default();
                 if let Entry::Vacant(e) = onnx_graph.tensors.entry(name) {
-                    let onnx_tensor = OnnxTensor::from_tensor_type(e.key().clone(), &tensor_type)?;
+                    let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
                     e.insert(onnx_tensor);
                 }
             }
@@ -88,7 +86,7 @@ impl Graph {
                     output.r#type.take().and_then(|t| t.value)
             {
                 onnx_graph.outputs.push(name.clone());
-                let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
+                let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
                 onnx_graph.tensors.insert(name, onnx_tensor);
             } else {
                 onnx_graph.outputs.push(name);
@@ -97,7 +95,7 @@ impl Graph {
 
         // Parse operations/nodes by draining to allow owned conversion
         for node in graph.node.drain(..) {
-            let operation = OnnxOperation::from_node_proto(node, &external_data_loader)?;
+            let operation = Operation::from_node_proto(node, &external_data_loader)?;
             onnx_graph.operations.push(operation);
         }
 
@@ -105,29 +103,29 @@ impl Graph {
     }
 
     /// Reference to all tensors in this graph
-    pub fn tensors(&self) -> &HashMap<String, OnnxTensor> {
+    pub fn tensors(&self) -> &HashMap<String, Tensor> {
         &self.tensors
     }
 
     /// Consume the graph and return the underlying tensor map.
-    pub fn into_tensors(self) -> HashMap<String, OnnxTensor> {
+    pub fn into_tensors(self) -> HashMap<String, Tensor> {
         self.tensors
     }
 
     /// Pluck a single tensor out of the graph by name, taking ownership.
-    /// This allows extraction via OnnxTensor::into_data().
-    pub fn take_tensor(&mut self, name: &str) -> Option<OnnxTensor> {
+    /// This allows extraction via Tensor::into_data().
+    pub fn take_tensor(&mut self, name: &str) -> Option<Tensor> {
         self.tensors.remove(name)
     }
 
     /// Drain all tensors from the graph, returning an iterator that takes ownership.
     /// The graph remains alive but its tensor storage is cleared.
-    pub fn drain_tensors(&mut self) -> Drain<'_, String, OnnxTensor> {
+    pub fn drain_tensors(&mut self) -> Drain<'_, String, Tensor> {
         self.tensors.drain()
     }
 
     /// Get all operations in the graph
-    pub fn operations(&self) -> &[OnnxOperation] {
+    pub fn operations(&self) -> &[Operation] {
         &self.operations
     }
 
@@ -147,14 +145,14 @@ impl Graph {
     }
 
     /// Get all operations of a specific type in this graph
-    pub fn get_operations_by_type(&self, op_type: &str) -> impl Iterator<Item = &OnnxOperation> {
+    pub fn get_operations_by_type(&self, op_type: &str) -> impl Iterator<Item = &Operation> {
         self.operations
             .iter()
             .filter(move |&op| op.op_type() == op_type)
     }
 
     /// Get operation by name in this graph
-    pub fn get_operation(&self, name: &str) -> Option<&OnnxOperation> {
+    pub fn get_operation(&self, name: &str) -> Option<&Operation> {
         self.operations.iter().find(|op| op.name() == name)
     }
 
@@ -179,19 +177,19 @@ impl Graph {
     }
 
     /// Get input tensors in this graph
-    pub fn get_input_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+    pub fn get_input_tensors(&self) -> impl Iterator<Item = &Tensor> {
         self.inputs.iter().filter_map(|name| self.tensors.get(name))
     }
 
     /// Get output tensors in this graph
-    pub fn get_output_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+    pub fn get_output_tensors(&self) -> impl Iterator<Item = &Tensor> {
         self.outputs
             .iter()
             .filter_map(|name| self.tensors.get(name))
     }
 
     /// Get tensors with data (initialisers/weights) in this graph
-    pub fn get_weight_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
+    pub fn get_weight_tensors(&self) -> impl Iterator<Item = &Tensor> {
         self.tensors.values().filter(|&t| t.has_data())
     }
 
@@ -204,7 +202,7 @@ impl Graph {
     ///
     /// If the graph contains cycles or there are unresolved dependencies,
     /// the function returns an `Error::InvalidModel`.
-    pub fn topological_order(&self) -> Result<Vec<&OnnxOperation>, Error> {
+    pub fn topological_order(&self) -> Result<Vec<&Operation>, Error> {
         let op_count = self.operations.len();
 
         // map tensor name -> producer op index
@@ -243,7 +241,7 @@ impl Graph {
             .map(|(idx, _)| idx)
             .collect();
 
-        let mut ordered: Vec<&OnnxOperation> = Vec::with_capacity(op_count);
+        let mut ordered: Vec<&Operation> = Vec::with_capacity(op_count);
 
         while let Some(idx) = stack.pop() {
             let op = &self.operations[idx];

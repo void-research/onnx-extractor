@@ -26,24 +26,24 @@ println!("{}", model);
 let graph = model.graph();
 
 // Tensor access
-let tensor = graph.tensors().get("input_name"); // Returns Option<&OnnxTensor>
+let tensor = graph.tensors().get("input_name"); // Returns Option<&Tensor>
 let tensor_names = graph.tensors().keys(); // Iterator<Item = &String>
-let inputs = graph.get_input_tensors(); // Iterator<Item = &OnnxTensor>
-let outputs = graph.get_output_tensors(); // Iterator<Item = &OnnxTensor>
-let weights = graph.get_weight_tensors(); // Iterator<Item = &OnnxTensor>
+let inputs = graph.get_input_tensors(); // Iterator<Item = &Tensor>
+let outputs = graph.get_output_tensors(); // Iterator<Item = &Tensor>
+let weights = graph.get_weight_tensors(); // Iterator<Item = &Tensor>
 
 // Extracting a tensor (moves out of graph so data can outlive it)
 // (Note: `model` must be declared as `mut model`)
-let owned_tensor = model.graph_mut().take_tensor("weight"); // Option<OnnxTensor>
+let owned_tensor = model.graph_mut().take_tensor("weight"); // Option<Tensor>
 
 // Operation access
-let operation = graph.get_operation("op_name"); // Option<&OnnxOperation>
-let conv_ops = graph.get_operations_by_type("Conv"); // Iterator<Item = &OnnxOperation>
+let operation = graph.get_operation("op_name"); // Option<&Operation>
+let conv_ops = graph.get_operations_by_type("Conv"); // Iterator<Item = &Operation>
 let op_types = graph.operation_types(); // Box<[&str]>
 let op_counts = graph.count_operations_by_type(); // HashMap<&str, usize>
 
 // Topological order
-let topo_order = graph.topological_order()?; // Result<Vec<&OnnxOperation>, Error>
+let topo_order = graph.topological_order()?; // Result<Vec<&Operation>, Error>
 ```
 
 ## Tensor Functions

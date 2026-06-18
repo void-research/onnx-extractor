@@ -1,7 +1,7 @@
 use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
-    AttributeProto, AttributeValue, DataType, Error, Graph, NodeProto, OnnxOperation, OnnxTensor,
+    AttributeProto, AttributeValue, DataType, Error, Graph, NodeProto, Operation, Tensor,
     TensorProto,
 };
 use std::{collections::HashMap, mem, sync::Arc};
@@ -14,11 +14,11 @@ use std::{collections::HashMap, mem, sync::Arc};
 /// structures. We avoid cloning where `prost` provides owned fields and use
 /// `drain/take` where appropriate.
 ///
-/// Create OnnxTensor from ONNX TensorProto
+/// Create Tensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
     mut tensor: TensorProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
-) -> Result<OnnxTensor, Error> {
+) -> Result<Tensor, Error> {
     let shape: Vec<i64> = std::mem::take(&mut tensor.dims);
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
     let name = tensor.name.take().unwrap_or_default();
@@ -73,14 +73,14 @@ pub(crate) fn tensor_from_proto(
         }
     };
 
-    Ok(OnnxTensor::new(name, shape, data_type, data))
+    Ok(Tensor::new(name, shape, data_type, data))
 }
 
-/// Create OnnxOperation from ONNX NodeProto
+/// Create Operation from ONNX NodeProto
 pub(crate) fn operation_from_node_proto(
     mut node: NodeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
-) -> Result<OnnxOperation, Error> {
+) -> Result<Operation, Error> {
     let mut attributes = HashMap::with_capacity(node.attribute.len());
 
     for mut attr in node.attribute.drain(..) {
@@ -89,7 +89,7 @@ pub(crate) fn operation_from_node_proto(
         attributes.insert(attr_name, value);
     }
 
-    Ok(OnnxOperation::new(
+    Ok(Operation::new(
         node.name.take().unwrap_or_default(),
         node.op_type.take().unwrap_or_default(),
         node.input,
@@ -136,7 +136,7 @@ pub(crate) fn parse_attribute_proto(
             attr.tensors
                 .drain(..)
                 .map(|tensor| tensor_from_proto(tensor, external_data_loader))
-                .collect::<Result<Box<[OnnxTensor]>, Error>>()?,
+                .collect::<Result<Box<[Tensor]>, Error>>()?,
         )),
         10 => Ok(AttributeValue::Graphs(
             attr.graphs
