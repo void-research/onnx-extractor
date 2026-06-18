@@ -1,4 +1,4 @@
-use std::collections::hash_map::Drain;
+use std::collections::hash_map::{Drain, Entry};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -72,9 +72,9 @@ impl Graph {
                 value_info.r#type.take().and_then(|t| t.value)
             {
                 let name = value_info.name.take().unwrap_or_default();
-                if !name.is_empty() && !onnx_graph.tensors.contains_key(&name) {
-                    let onnx_tensor = OnnxTensor::from_tensor_type(name.clone(), &tensor_type)?;
-                    onnx_graph.tensors.insert(name, onnx_tensor);
+                if let Entry::Vacant(e) = onnx_graph.tensors.entry(name) {
+                    let onnx_tensor = OnnxTensor::from_tensor_type(e.key().clone(), &tensor_type)?;
+                    e.insert(onnx_tensor);
                 }
             }
         }
