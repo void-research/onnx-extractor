@@ -244,6 +244,13 @@ impl OnnxTensor {
         self.data_type
     }
 
+    /// Returns true if this tensor contains data.
+    ///
+    /// This check does not trigger loading or memory-mapping of external files.
+    pub fn has_data(&self) -> bool {
+        !matches!(self.data, TensorDataLocation::None)
+    }
+
     /// Borrow tensor data
     ///
     /// - All variants are returned without copying the underlying tensor data.

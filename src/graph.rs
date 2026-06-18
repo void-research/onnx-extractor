@@ -201,7 +201,7 @@ impl Graph {
 
     /// Get tensors with data (initialisers/weights) in this graph
     pub fn get_weight_tensors(&self) -> impl Iterator<Item = &OnnxTensor> {
-        self.tensors.values().filter(|&t| t.data().is_ok())
+        self.tensors.values().filter(|&t| t.has_data())
     }
 
     /// Return operations in topological order using Kahn's algorithm.
@@ -318,11 +318,7 @@ impl Graph {
                 name,
                 tensor.shape(),
                 tensor.data_type(),
-                if tensor.data().is_ok() {
-                    "data"
-                } else {
-                    "no data"
-                },
+                if tensor.has_data() { "data" } else { "no data" },
                 if self.inputs.contains(name) {
                     ", input"
                 } else if self.outputs.contains(name) {
