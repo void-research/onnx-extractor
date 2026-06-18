@@ -134,13 +134,12 @@ pub(crate) fn parse_attribute_proto(
         6 => Ok(AttributeValue::Floats(mem::take(&mut attr.floats))),
         7 => Ok(AttributeValue::Ints(mem::take(&mut attr.ints))),
         8 => Ok(AttributeValue::Strings(mem::take(&mut attr.strings))),
-        10 => {
-            let mut graphs = Vec::new();
-            for graph in attr.graphs.drain(..) {
-                graphs.push(Graph::from_proto(graph, external_data_loader.clone())?);
-            }
-            Ok(AttributeValue::Graphs(graphs))
-        }
+        10 => Ok(AttributeValue::Graphs(
+            attr.graphs
+                .drain(..)
+                .map(|graph| Graph::from_proto(graph, external_data_loader.clone()))
+                .collect::<Result<Box<[Graph]>, Error>>()?,
+        )),
         _ => Err(Error::Unsupported(format!("attribute type: {}", attr_type))),
     }
 }

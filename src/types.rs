@@ -83,7 +83,7 @@ pub enum AttributeValue {
     Ints(Vec<i64>),
     Floats(Vec<f32>),
     Strings(Vec<Bytes>),
-    Graphs(Vec<Graph>),
+    Graphs(Box<[Graph]>),
 }
 
 impl AttributeValue {
@@ -148,9 +148,9 @@ impl AttributeValue {
 
     /// Try to get string array value as validated `&str` entries.
     ///
-    /// This performs UTF-8 validation on each entry and collects them into a Vec.
+    /// This performs UTF-8 validation on each entry and collects them into a Box.
     /// Use `as_strings_bytes` if you want to avoid validation and allocation.
-    pub fn as_strings(&self) -> Option<Vec<&str>> {
+    pub fn as_strings(&self) -> Option<Box<[&str]>> {
         match self {
             AttributeValue::Strings(strings) => strings
                 .iter()

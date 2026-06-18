@@ -168,12 +168,12 @@ impl Graph {
     }
 
     /// Get all operation types in this graph
-    pub fn operation_types(&self) -> Vec<String> {
+    pub fn operation_types(&self) -> Box<[String]> {
         let mut set: HashSet<&str> = HashSet::new();
         for op in &self.operations {
             set.insert(op.op_type());
         }
-        let mut op_types: Vec<String> = set.into_iter().map(|s| s.to_string()).collect();
+        let mut op_types: Box<[String]> = set.into_iter().map(|s| s.to_string()).collect();
         op_types.sort_unstable();
         op_types
     }
@@ -350,7 +350,7 @@ impl Graph {
                 op.outputs().join(", ")
             )?;
             if !op.attributes().is_empty() {
-                let attr_keys: Vec<_> = op.attributes().keys().collect();
+                let attr_keys: Box<[_]> = op.attributes().keys().collect();
                 writeln!(f, "{}    Attributes: {:?}", indent, attr_keys)?;
 
                 for (attr_name, attr_val) in op.attributes() {
