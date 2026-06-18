@@ -341,19 +341,19 @@ impl Graph {
                 for (attr_name, attr_val) in op.attributes() {
                     match attr_val {
                         AttributeValue::Graph(subgraph) => {
-                            writeln!(f, "{}      Attribute '{}' (Subgraph):", indent, attr_name)?;
+                            writeln!(f, "{}      {} (Subgraph):", indent, attr_name)?;
                             subgraph.format_recursive(f, indent_level + 4)?;
                         }
                         AttributeValue::Graphs(subgraphs) => {
                             writeln!(
                                 f,
-                                "{}      Attribute '{}' (Subgraphs [{}]):",
+                                "{}      {} ({} subgraphs):",
                                 indent,
                                 attr_name,
                                 subgraphs.len()
                             )?;
                             for (sub_idx, subgraph) in subgraphs.iter().enumerate() {
-                                writeln!(f, "{}        [{}] Subgraph:", indent, sub_idx)?;
+                                writeln!(f, "{}        [{}]:", indent, sub_idx)?;
                                 subgraph.format_recursive(f, indent_level + 6)?;
                             }
                         }
