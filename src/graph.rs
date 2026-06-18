@@ -1,5 +1,5 @@
 use std::collections::hash_map::Drain;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
@@ -43,8 +43,7 @@ impl Graph {
 
         // Parse initialiser tensors (weights/constants) by draining to avoid clones
         for tensor in graph.initializer.drain(..) {
-            let onnx_tensor =
-                proto_adapter::tensor_from_proto(tensor, external_data_loader.clone())?;
+            let onnx_tensor = proto_adapter::tensor_from_proto(tensor, &external_data_loader)?;
             let tensor_name = onnx_tensor.name().to_string();
             if !tensor_name.is_empty() {
                 onnx_graph.tensors.insert(tensor_name, onnx_tensor);
@@ -106,7 +105,7 @@ impl Graph {
 
         // Parse operations/nodes by draining to allow owned conversion
         for node in graph.node.drain(..) {
-            let operation = OnnxOperation::from_node_proto(node, external_data_loader.clone())?;
+            let operation = OnnxOperation::from_node_proto(node, &external_data_loader)?;
             onnx_graph.operations.push(operation);
         }
 
@@ -236,18 +235,16 @@ impl Graph {
 
         // indegree = number of inputs coming from other ops
         let mut indegree = vec![0; op_count];
-        for (idx, op) in self.operations.iter().enumerate() {
-            let mut count = 0;
-            for input in op.inputs() {
-                if !input.is_empty() && producer.contains_key(input.as_str()) {
-                    count += 1;
+        for &tensor_name in producer.keys() {
+            if let Some(cons_list) = consumers.get(tensor_name) {
+                for &cidx in cons_list {
+                    indegree[cidx] += 1;
                 }
             }
-            indegree[idx] = count;
         }
 
         // start with ops that have indegree 0
-        let mut queue: VecDeque<usize> = indegree
+        let mut stack: Vec<usize> = indegree
             .iter()
             .enumerate()
             .filter(|&(_, &d)| d == 0)
@@ -256,7 +253,7 @@ impl Graph {
 
         let mut ordered: Vec<&OnnxOperation> = Vec::with_capacity(op_count);
 
-        while let Some(idx) = queue.pop_front() {
+        while let Some(idx) = stack.pop() {
             let op = &self.operations[idx];
             ordered.push(op);
 
@@ -267,7 +264,7 @@ impl Graph {
                     for &cidx in cons_list {
                         indegree[cidx] -= 1;
                         if indegree[cidx] == 0 {
-                            queue.push_back(cidx);
+                            stack.push(cidx);
                         }
                     }
                 }

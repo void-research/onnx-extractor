@@ -80,8 +80,6 @@ impl ExternalDataLoader {
     /// This method lazily loads the entire external file into the cache on first access,
     /// then returns a slice of the cached data based on offset and length.
     pub(crate) fn load_data(&self, info: &ExternalDataInfo) -> Result<Bytes, Error> {
-        let file_path = self.model_dir.join(&info.location);
-
         {
             let cache = self.cache.read().unwrap();
             if let Some(cached_data) = cache.get(&info.location) {
@@ -95,6 +93,7 @@ impl ExternalDataLoader {
             return self.slice_data(cached_data, info);
         }
 
+        let file_path = self.model_dir.join(&info.location);
         let file_data = self.load_file(&file_path)?;
         let slice = self.slice_data(&file_data, info)?;
 

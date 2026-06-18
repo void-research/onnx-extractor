@@ -57,14 +57,14 @@ impl Model {
         // Tensors keep the loader alive via Arc as long as they need it
         let external_data_loader = model_dir.map(|dir| Arc::new(ExternalDataLoader::new(dir)));
 
-        let mut metadata = HashMap::new();
+        let mut metadata = HashMap::with_capacity(model.metadata_props.len());
         for mut prop in model.metadata_props {
             if let Some(key) = prop.key.take() {
                 metadata.insert(key, prop.value.take().unwrap_or_default());
             }
         }
 
-        let mut opsets = HashMap::new();
+        let mut opsets = HashMap::with_capacity(model.opset_import.len());
         for mut opset in model.opset_import {
             opsets.insert(
                 opset.domain.take().unwrap_or_default(),

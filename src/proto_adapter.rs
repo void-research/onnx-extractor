@@ -17,7 +17,7 @@ use std::{collections::HashMap, mem, sync::Arc};
 /// Create OnnxTensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
     mut tensor: TensorProto,
-    external_data_loader: Option<Arc<ExternalDataLoader>>,
+    external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<OnnxTensor, Error> {
     let shape: Vec<i64> = std::mem::take(&mut tensor.dims);
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
@@ -28,7 +28,7 @@ pub(crate) fn tensor_from_proto(
         // Tensor has external data
         if let Some(loader) = external_data_loader {
             let external_info =
-                ExternalDataInfo::from_key_value_pairs(&tensor.external_data, loader)?;
+                ExternalDataInfo::from_key_value_pairs(&tensor.external_data, loader.clone())?;
             TensorDataLocation::External(external_info)
         } else {
             return Err(Error::InvalidModel(
@@ -79,13 +79,13 @@ pub(crate) fn tensor_from_proto(
 /// Create OnnxOperation from ONNX NodeProto
 pub(crate) fn operation_from_node_proto(
     mut node: NodeProto,
-    external_data_loader: Option<Arc<ExternalDataLoader>>,
+    external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<OnnxOperation, Error> {
-    let mut attributes = HashMap::new();
+    let mut attributes = HashMap::with_capacity(node.attribute.len());
 
     for mut attr in node.attribute.drain(..) {
         let attr_name = attr.name.take().unwrap_or_default();
-        let value = parse_attribute_proto(attr, external_data_loader.clone())?;
+        let value = parse_attribute_proto(attr, external_data_loader)?;
         if !attr_name.is_empty() {
             attributes.insert(attr_name, value);
         }
@@ -107,7 +107,7 @@ pub(crate) fn operation_from_node_proto(
 /// the protobuf structure.
 pub(crate) fn parse_attribute_proto(
     mut attr: AttributeProto,
-    external_data_loader: Option<Arc<ExternalDataLoader>>,
+    external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<AttributeValue, Error> {
     let attr_type = attr.r#type.unwrap_or(0);
     match attr_type {
@@ -117,7 +117,7 @@ pub(crate) fn parse_attribute_proto(
         4 => {
             if let Some(tensor) = attr.t.take() {
                 // Note: Tensor attributes don't have external data loader since they're inline
-                let onnx_tensor = tensor_from_proto(tensor, None)?;
+                let onnx_tensor = tensor_from_proto(tensor, &None)?;
                 Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
             } else {
                 Err(Error::MissingField("tensor attribute data".to_string()))
@@ -125,7 +125,7 @@ pub(crate) fn parse_attribute_proto(
         }
         5 => {
             if let Some(graph) = attr.g.take() {
-                let onnx_graph = Graph::from_proto(graph, external_data_loader)?;
+                let onnx_graph = Graph::from_proto(graph, external_data_loader.clone())?;
                 Ok(AttributeValue::Graph(Box::new(onnx_graph)))
             } else {
                 Err(Error::MissingField("graph attribute data".to_string()))

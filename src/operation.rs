@@ -54,10 +54,9 @@ impl OnnxOperation {
         &self.attributes
     }
 
-    /// Create OnnxOperation from ONNX NodeProto
     pub(crate) fn from_node_proto(
         node: NodeProto,
-        external_data_loader: Option<Arc<ExternalDataLoader>>,
+        external_data_loader: &Option<Arc<ExternalDataLoader>>,
     ) -> Result<Self, Error> {
         proto_adapter::operation_from_node_proto(node, external_data_loader)
     }
