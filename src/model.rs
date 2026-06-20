@@ -24,13 +24,14 @@ pub struct Model {
 
 impl Model {
     /// Load ONNX model from file path
-    pub fn load_from_file(path: &str) -> Result<Self, Error> {
+    pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let path = path.as_ref();
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         let bytes = Bytes::from_owner(mmap);
 
         // Extract model directory for external data loading
-        let model_dir = Path::new(path)
+        let model_dir = path
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
