@@ -1,5 +1,5 @@
 use std::collections::hash_map::{Drain, Entry};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
@@ -204,8 +204,6 @@ impl Graph {
 
         // map tensor name -> producer op index
         let mut producer: HashMap<&str, usize> = HashMap::with_capacity(op_count);
-        // map tensor name -> list of consumer op indices
-        let mut consumers: HashMap<&str, Vec<usize>> = HashMap::with_capacity(op_count);
 
         for (idx, op) in self.operations.iter().enumerate() {
             for out in op.outputs() {
@@ -213,19 +211,20 @@ impl Graph {
                     producer.insert(out.as_str(), idx);
                 }
             }
-            for input in op.inputs() {
-                if !input.is_empty() {
-                    consumers.entry(input.as_str()).or_default().push(idx);
-                }
-            }
         }
 
+        // list of consumer op indices for each producer op index
+        let mut consumers: Vec<Vec<usize>> = vec![Vec::new(); op_count];
         // indegree = number of inputs coming from other ops
         let mut indegree = vec![0; op_count];
-        for &tensor_name in producer.keys() {
-            if let Some(cons_list) = consumers.get(tensor_name) {
-                for &cidx in cons_list {
-                    indegree[cidx] += 1;
+
+        for (idx, op) in self.operations.iter().enumerate() {
+            for input in op.inputs() {
+                if !input.is_empty() {
+                    if let Some(&prod_idx) = producer.get(input.as_str()) {
+                        indegree[idx] += 1;
+                        consumers[prod_idx].push(idx);
+                    }
                 }
             }
         }
@@ -244,16 +243,10 @@ impl Graph {
             let op = &self.operations[idx];
             ordered.push(op);
 
-            for out in op.outputs() {
-                if !out.is_empty()
-                    && let Some(cons_list) = consumers.get(out.as_str())
-                {
-                    for &cidx in cons_list {
-                        indegree[cidx] -= 1;
-                        if indegree[cidx] == 0 {
-                            stack.push(cidx);
-                        }
-                    }
+            for &cidx in &consumers[idx] {
+                indegree[cidx] -= 1;
+                if indegree[cidx] == 0 {
+                    stack.push(cidx);
                 }
             }
         }
