@@ -1,5 +1,5 @@
-use std::collections::hash_map::{Drain, Entry};
 use std::collections::HashMap;
+use std::collections::hash_map::{Drain, Entry};
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
