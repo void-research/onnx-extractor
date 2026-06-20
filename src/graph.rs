@@ -158,13 +158,10 @@ impl Graph {
 
     /// Get all operation types in this graph
     pub fn operation_types(&self) -> Box<[&str]> {
-        let mut set: HashSet<&str> = HashSet::new();
-        for op in &self.operations {
-            set.insert(op.op_type());
-        }
-        let mut op_types: Box<[&str]> = set.into_iter().collect();
+        let mut op_types: Vec<&str> = self.operations.iter().map(|op| op.op_type()).collect();
         op_types.sort_unstable();
-        op_types
+        op_types.dedup();
+        op_types.into_boxed_slice()
     }
 
     /// Count operations by type in this graph
