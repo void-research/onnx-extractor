@@ -8,7 +8,7 @@ pub enum Error {
     /// Protobuf decoding error
     Decode(prost::DecodeError),
     /// UTF-8 conversion error
-    Utf8(std::string::FromUtf8Error),
+    Utf8(std::str::Utf8Error),
     /// Model structure error
     InvalidModel(String),
     /// Missing required field
@@ -56,14 +56,8 @@ impl From<prost::DecodeError> for Error {
     }
 }
 
-impl From<std::string::FromUtf8Error> for Error {
-    fn from(err: std::string::FromUtf8Error) -> Self {
+impl From<std::str::Utf8Error> for Error {
+    fn from(err: std::str::Utf8Error) -> Self {
         Error::Utf8(err)
-    }
-}
-
-impl From<std::num::TryFromIntError> for Error {
-    fn from(err: std::num::TryFromIntError) -> Self {
-        Error::InvalidModel(format!("Integer conversion error: {}", err))
     }
 }

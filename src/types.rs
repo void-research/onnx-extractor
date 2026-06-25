@@ -1,3 +1,4 @@
+use crate::error::Error;
 use crate::graph::Graph;
 use crate::tensor::Tensor;
 use prost::bytes::Bytes;
@@ -88,172 +89,29 @@ pub enum AttributeValue {
 }
 
 impl AttributeValue {
-    /// Try to get float value
-    pub fn as_float(&self) -> Option<f32> {
-        match self {
-            AttributeValue::Float(f) => Some(*f),
-            _ => None,
-        }
-    }
-
-    /// Try to get integer value
-    pub fn as_int(&self) -> Option<i64> {
-        match self {
-            AttributeValue::Int(i) => Some(*i),
-            _ => None,
-        }
-    }
-
-    /// Try to get string value.
+    /// Get string value as a validated UTF-8 `&str`.
     ///
-    /// This performs UTF-8 validation. Use `as_string_bytes` if you want to
-    /// avoid validation and compare bytes directly.
-    pub fn as_string(&self) -> Option<&str> {
+    /// Returns `Err` if the variant is not `String` or if the bytes are not valid UTF-8.
+    /// The returned `&str` borrows directly from the underlying buffer with no copy.
+    pub fn as_string(&self) -> Result<&str, Error> {
         match self {
-            AttributeValue::String(s) => std::str::from_utf8(s).ok(),
-            _ => None,
+            AttributeValue::String(s) => Ok(std::str::from_utf8(s)?),
+            _ => Err(Error::MissingField("string attribute".to_string())),
         }
     }
 
-    /// Try to get raw bytes for a string attribute
-    pub fn as_string_bytes(&self) -> Option<&[u8]> {
-        match self {
-            AttributeValue::String(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    /// Try to get tensor value
-    pub fn as_tensor(&self) -> Option<&Tensor> {
-        match self {
-            AttributeValue::Tensor(t) => Some(t),
-            _ => None,
-        }
-    }
-
-    /// Try to get graph value
-    pub fn as_graph(&self) -> Option<&Graph> {
-        match self {
-            AttributeValue::Graph(g) => Some(g),
-            _ => None,
-        }
-    }
-
-    /// Try to get float array value
-    pub fn as_floats(&self) -> Option<&[f32]> {
-        match self {
-            AttributeValue::Floats(floats) => Some(floats),
-            _ => None,
-        }
-    }
-
-    /// Try to get integer array value
-    pub fn as_ints(&self) -> Option<&[i64]> {
-        match self {
-            AttributeValue::Ints(ints) => Some(ints),
-            _ => None,
-        }
-    }
-
-    /// Try to get string array value as validated `&str` entries.
+    /// Get string array value as validated `&str` entries.
     ///
-    /// This performs UTF-8 validation on each entry and collects them into a Box.
-    /// Use `as_strings_bytes` if you want to avoid validation and allocation.
-    pub fn as_strings(&self) -> Option<Box<[&str]>> {
+    /// Returns `Err` if the variant is not `Strings` or if any entry is not valid UTF-8.
+    /// Each `&str` borrows directly from the underlying buffer with no copy,
+    /// but the returned `Box<[&str]>` is a new allocation for the pointer array.
+    pub fn as_strings(&self) -> Result<Box<[&str]>, Error> {
         match self {
             AttributeValue::Strings(strings) => strings
                 .iter()
-                .map(|s| std::str::from_utf8(s).ok())
+                .map(|s| Ok(std::str::from_utf8(s)?))
                 .collect(),
-            _ => None,
-        }
-    }
-
-    /// Try to get string array value as a slice of `Bytes`
-    pub fn as_strings_bytes(&self) -> Option<&[Bytes]> {
-        match self {
-            AttributeValue::Strings(strings) => Some(strings),
-            _ => None,
-        }
-    }
-
-    /// Try to get tensor array value
-    pub fn as_tensors(&self) -> Option<&[Tensor]> {
-        match self {
-            AttributeValue::Tensors(tensors) => Some(tensors),
-            _ => None,
-        }
-    }
-
-    /// Try to get graph array value
-    pub fn as_graphs(&self) -> Option<&[Graph]> {
-        match self {
-            AttributeValue::Graphs(graphs) => Some(graphs),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the string bytes
-    pub fn into_string(self) -> Option<Bytes> {
-        match self {
-            AttributeValue::String(s) => Some(s),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the tensor
-    pub fn into_tensor(self) -> Option<Tensor> {
-        match self {
-            AttributeValue::Tensor(t) => Some(*t),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the graph
-    pub fn into_graph(self) -> Option<Graph> {
-        match self {
-            AttributeValue::Graph(g) => Some(*g),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the float array
-    pub fn into_floats(self) -> Option<Vec<f32>> {
-        match self {
-            AttributeValue::Floats(v) => Some(v),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the integer array
-    pub fn into_ints(self) -> Option<Vec<i64>> {
-        match self {
-            AttributeValue::Ints(v) => Some(v),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the string bytes array
-    pub fn into_strings(self) -> Option<Vec<Bytes>> {
-        match self {
-            AttributeValue::Strings(v) => Some(v),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the tensor array
-    pub fn into_tensors(self) -> Option<Box<[Tensor]>> {
-        match self {
-            AttributeValue::Tensors(v) => Some(v),
-            _ => None,
-        }
-    }
-
-    /// Consume and return the graph array
-    pub fn into_graphs(self) -> Option<Box<[Graph]>> {
-        match self {
-            AttributeValue::Graphs(v) => Some(v),
-            _ => None,
+            _ => Err(Error::MissingField("strings attribute".to_string())),
         }
     }
 }
