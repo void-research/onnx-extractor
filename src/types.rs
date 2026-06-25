@@ -192,4 +192,68 @@ impl AttributeValue {
             _ => None,
         }
     }
+
+    /// Consume and return the string bytes
+    pub fn into_string(self) -> Option<Bytes> {
+        match self {
+            AttributeValue::String(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the tensor
+    pub fn into_tensor(self) -> Option<Tensor> {
+        match self {
+            AttributeValue::Tensor(t) => Some(*t),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the graph
+    pub fn into_graph(self) -> Option<Graph> {
+        match self {
+            AttributeValue::Graph(g) => Some(*g),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the float array
+    pub fn into_floats(self) -> Option<Vec<f32>> {
+        match self {
+            AttributeValue::Floats(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the integer array
+    pub fn into_ints(self) -> Option<Vec<i64>> {
+        match self {
+            AttributeValue::Ints(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the string bytes array
+    pub fn into_strings(self) -> Option<Vec<Bytes>> {
+        match self {
+            AttributeValue::Strings(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the tensor array
+    pub fn into_tensors(self) -> Option<Box<[Tensor]>> {
+        match self {
+            AttributeValue::Tensors(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Consume and return the graph array
+    pub fn into_graphs(self) -> Option<Box<[Graph]>> {
+        match self {
+            AttributeValue::Graphs(v) => Some(v),
+            _ => None,
+        }
+    }
 }

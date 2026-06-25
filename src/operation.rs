@@ -54,6 +54,13 @@ impl Operation {
         &self.attributes
     }
 
+    /// Mutable reference to all attributes.
+    ///
+    /// To remove or drain attributes directly.
+    pub fn attributes_mut(&mut self) -> &mut HashMap<String, AttributeValue> {
+        &mut self.attributes
+    }
+
     pub(crate) fn from_node_proto(
         node: NodeProto,
         external_data_loader: &Option<Arc<ExternalDataLoader>>,

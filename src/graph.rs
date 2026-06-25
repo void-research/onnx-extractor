@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::collections::hash_map::{Drain, Entry};
+use std::collections::{HashMap, hash_map::Entry};
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
@@ -107,26 +106,23 @@ impl Graph {
         &self.tensors
     }
 
-    /// Consume the graph and return the underlying tensor map.
-    pub fn into_tensors(self) -> HashMap<String, Tensor> {
-        self.tensors
-    }
-
-    /// Pluck a single tensor out of the graph by name, taking ownership.
-    /// This allows extraction via Tensor::into_data().
-    pub fn take_tensor(&mut self, name: &str) -> Option<Tensor> {
-        self.tensors.remove(name)
-    }
-
-    /// Drain all tensors from the graph, returning an iterator that takes ownership.
-    /// The graph remains alive but its tensor storage is cleared.
-    pub fn drain_tensors(&mut self) -> Drain<'_, String, Tensor> {
-        self.tensors.drain()
+    /// Mutable reference to all tensors in this graph.
+    ///
+    /// To remove, drain, or modify tensors directly.
+    pub fn tensors_mut(&mut self) -> &mut HashMap<String, Tensor> {
+        &mut self.tensors
     }
 
     /// Get all operations in the graph
     pub fn operations(&self) -> &[Operation] {
         &self.operations
+    }
+
+    /// Mutable reference to all operations in the graph.
+    ///
+    /// To remove, drain, or modify operations directly.
+    pub fn operations_mut(&mut self) -> &mut Vec<Operation> {
+        &mut self.operations
     }
 
     /// Get names of graph inputs
