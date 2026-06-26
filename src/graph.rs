@@ -216,11 +216,11 @@ impl Graph {
 
         for (idx, op) in self.operations.iter().enumerate() {
             for input in op.inputs() {
-                if !input.is_empty() {
-                    if let Some(&prod_idx) = producer.get(input.as_str()) {
-                        indegree[idx] += 1;
-                        consumers[prod_idx].push(idx);
-                    }
+                if !input.is_empty()
+                    && let Some(&prod_idx) = producer.get(input.as_str())
+                {
+                    indegree[idx] += 1;
+                    consumers[prod_idx].push(idx);
                 }
             }
         }
