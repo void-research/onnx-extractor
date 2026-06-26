@@ -101,8 +101,7 @@ pub(crate) fn parse_attribute_proto(
     attr: AttributeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<(String, AttributeValue), Error> {
-    let attr_type = attr.r#type.unwrap_or(0);
-    let value = match attr_type {
+    let value = match attr.r#type.unwrap_or(0) {
         1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
         2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
         3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
@@ -138,7 +137,7 @@ pub(crate) fn parse_attribute_proto(
                 .map(|graph| Graph::from_proto(graph, external_data_loader.clone()))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
-        _ => Err(Error::Unsupported(format!("attribute type: {}", attr_type))),
+        n => Err(Error::Unsupported(format!("attribute type: {}", n))),
     }?;
 
     Ok((attr.name.unwrap_or_default(), value))
