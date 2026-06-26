@@ -15,8 +15,6 @@ pub enum Error {
     MissingField(String),
     /// Unsupported feature
     Unsupported(String),
-    /// Data type conversion or format error
-    DataConversion(String),
 }
 
 impl fmt::Display for Error {
@@ -28,7 +26,6 @@ impl fmt::Display for Error {
             Error::InvalidModel(msg) => write!(f, "Invalid model: {}", msg),
             Error::MissingField(field) => write!(f, "Missing required field: {}", field),
             Error::Unsupported(feature) => write!(f, "Unsupported feature: {}", feature),
-            Error::DataConversion(msg) => write!(f, "Data conversion error: {}", msg),
         }
     }
 }
