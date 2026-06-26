@@ -77,13 +77,14 @@ pub(crate) fn operation_from_node_proto(
     node: NodeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<Operation, Error> {
-    let mut attributes = HashMap::with_capacity(node.attribute.len());
-
-    for mut attr in node.attribute {
-        let attr_name = attr.name.take().unwrap_or_default();
-        let value = parse_attribute_proto(attr, external_data_loader)?;
-        attributes.insert(attr_name, value);
-    }
+    let attributes: HashMap<String, AttributeValue> = node
+        .attribute
+        .into_iter()
+        .map(|mut attr| {
+            let attr_name = attr.name.take().unwrap_or_default();
+            parse_attribute_proto(attr, external_data_loader).map(|v| (attr_name, v))
+        })
+        .collect::<Result<HashMap<_, _>, Error>>()?;
 
     Ok(Operation::new(
         node.name.unwrap_or_default(),

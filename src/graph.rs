@@ -34,7 +34,6 @@ impl Graph {
                 + graph.input.len()
                 + graph.output.len(),
         );
-        onnx_graph.operations.reserve(graph.node.len());
         onnx_graph.inputs.reserve(graph.input.len());
         onnx_graph.outputs.reserve(graph.output.len());
 
@@ -93,10 +92,11 @@ impl Graph {
         }
 
         // Parse operations/nodes
-        for node in graph.node {
-            let operation = Operation::from_node_proto(node, &external_data_loader)?;
-            onnx_graph.operations.push(operation);
-        }
+        onnx_graph.operations = graph
+            .node
+            .into_iter()
+            .map(|node| Operation::from_node_proto(node, &external_data_loader))
+            .collect::<Result<Vec<_>, Error>>()?;
 
         Ok(onnx_graph)
     }

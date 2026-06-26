@@ -58,17 +58,17 @@ impl Model {
         // Tensors keep the loader alive via Arc as long as they need it
         let external_data_loader = model_dir.map(|dir| Arc::new(ExternalDataLoader::new(dir)));
 
-        let mut metadata = HashMap::with_capacity(model.metadata_props.len());
-        for prop in model.metadata_props {
-            if let Some(key) = prop.key {
-                metadata.insert(key, prop.value.unwrap_or_default());
-            }
-        }
+        let metadata: HashMap<String, String> = model
+            .metadata_props
+            .into_iter()
+            .filter_map(|prop| prop.key.map(|k| (k, prop.value.unwrap_or_default())))
+            .collect();
 
-        let mut opsets = HashMap::with_capacity(model.opset_import.len());
-        for opset in model.opset_import {
-            opsets.insert(opset.domain.unwrap_or_default(), opset.version.unwrap_or(0));
-        }
+        let opsets: HashMap<String, i64> = model
+            .opset_import
+            .into_iter()
+            .map(|opset| (opset.domain.unwrap_or_default(), opset.version.unwrap_or(0)))
+            .collect();
 
         Ok(Model {
             graph: Graph::from_proto(graph, external_data_loader)?,
