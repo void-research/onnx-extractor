@@ -34,7 +34,7 @@ let weights = graph.get_weight_tensors(); // Iterator<Item = &Tensor>
 
 // Extracting a tensor (moves out of graph so data can outlive it)
 // (Note: `model` must be declared as `mut model`)
-let owned_tensor = model.graph_mut().take_tensor("weight"); // Option<Tensor>
+let owned_tensor = model.graph_mut().tensors_mut().remove("weight"); // Option<Tensor>
 
 // Operation access
 let operation = graph.get_operation("op_name"); // Option<&Operation>
@@ -79,7 +79,7 @@ if let TensorDataRef::F32(floats) = data_ref {
 // Consume tensor and get owned data
 // This allows the data to outlive the model itself
 // (Note: `model` must be declared as `mut model`)
-if let Some(owned_tensor) = model.graph_mut().take_tensor("weight") {
+if let Some(owned_tensor) = model.graph_mut().tensors_mut().remove("weight") {
     let owned_data = owned_tensor.into_data()?; // Returns Result<TensorData, Error>
 }
 ```
@@ -137,7 +137,9 @@ if let Some(attr) = attributes.get("kernel_shape") {
 }
 
 let stride = attributes.get("stride").and_then(|a| a.as_int()); // Option<i64>
-let activation = attributes.get("activation").and_then(|a| a.as_string()); // Option<&str>
+let activation = attributes.get("activation").and_then(|a| a.as_string()); // Option<&Bytes>
+// Or for validated UTF-8:
+let activation_str = attributes.get("activation").and_then(|a| a.as_string_validated().ok()); // Option<&str>
 
 // Subgraph access (Control Flow subgraphs)
 if let Some(subgraph) = attributes.get("then_branch").and_then(|a| a.as_graph()) {
