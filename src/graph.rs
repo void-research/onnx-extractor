@@ -16,11 +16,11 @@ pub struct Graph {
 
 impl Graph {
     pub(crate) fn from_proto(
-        mut graph: GraphProto,
+        graph: GraphProto,
         external_data_loader: Option<Arc<ExternalDataLoader>>,
     ) -> Result<Self, Error> {
         let mut onnx_graph = Graph {
-            name: graph.name.take().unwrap_or_default(),
+            name: graph.name.unwrap_or_default(),
             tensors: HashMap::new(),
             operations: Vec::new(),
             inputs: Vec::new(),
@@ -38,21 +38,21 @@ impl Graph {
         onnx_graph.inputs.reserve(graph.input.len());
         onnx_graph.outputs.reserve(graph.output.len());
 
-        // Parse initialiser tensors (weights/constants) by draining to avoid clones
-        for tensor in graph.initializer.drain(..) {
+        // Parse initialiser tensors (weights/constants)
+        for tensor in graph.initializer {
             let onnx_tensor = proto_adapter::tensor_from_proto(tensor, &external_data_loader)?;
             let tensor_name = onnx_tensor.name().to_string();
             onnx_graph.tensors.insert(tensor_name, onnx_tensor);
         }
 
         // Parse input tensor info and extract input names
-        for mut input in graph.input.drain(..) {
-            let name = input.name.take().unwrap_or_default();
+        for input in graph.input {
+            let name = input.name.unwrap_or_default();
 
             // If the name is already in tensors, it's an initializer, so we skip adding it to inputs/tensors
             if !onnx_graph.tensors.contains_key(&name) {
                 if let Some(type_proto::Value::TensorType(tensor_type)) =
-                    input.r#type.take().and_then(|t| t.value)
+                    input.r#type.and_then(|t| t.value)
                 {
                     onnx_graph.inputs.push(name.clone());
                     let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
@@ -64,11 +64,11 @@ impl Graph {
         }
 
         // Parse value_info for intermediate tensor shapes and types
-        for mut value_info in graph.value_info.drain(..) {
+        for value_info in graph.value_info {
             if let Some(type_proto::Value::TensorType(tensor_type)) =
-                value_info.r#type.take().and_then(|t| t.value)
+                value_info.r#type.and_then(|t| t.value)
             {
-                let name = value_info.name.take().unwrap_or_default();
+                let name = value_info.name.unwrap_or_default();
                 if let Entry::Vacant(e) = onnx_graph.tensors.entry(name) {
                     let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
                     e.insert(onnx_tensor);
@@ -77,12 +77,12 @@ impl Graph {
         }
 
         // Parse output tensor info and extract output names
-        for mut output in graph.output.drain(..) {
-            let name = output.name.take().unwrap_or_default();
+        for output in graph.output {
+            let name = output.name.unwrap_or_default();
 
             if !onnx_graph.tensors.contains_key(&name)
                 && let Some(type_proto::Value::TensorType(tensor_type)) =
-                    output.r#type.take().and_then(|t| t.value)
+                    output.r#type.and_then(|t| t.value)
             {
                 onnx_graph.outputs.push(name.clone());
                 let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
@@ -92,8 +92,8 @@ impl Graph {
             }
         }
 
-        // Parse operations/nodes by draining to allow owned conversion
-        for node in graph.node.drain(..) {
+        // Parse operations/nodes
+        for node in graph.node {
             let operation = Operation::from_node_proto(node, &external_data_loader)?;
             onnx_graph.operations.push(operation);
         }
