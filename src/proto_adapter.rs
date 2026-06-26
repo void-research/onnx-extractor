@@ -25,7 +25,7 @@ pub(crate) fn tensor_from_proto(
         // Tensor has external data
         if let Some(loader) = external_data_loader {
             let external_info =
-                ExternalDataInfo::from_key_value_pairs(&tensor.external_data, loader.clone())?;
+                ExternalDataInfo::from_key_value_pairs(tensor.external_data, loader.clone())?;
             TensorDataLocation::External(external_info)
         } else {
             return Err(Error::InvalidModel(

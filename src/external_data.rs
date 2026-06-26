@@ -19,7 +19,7 @@ pub(crate) struct ExternalDataInfo {
 impl ExternalDataInfo {
     /// Parse external data info from key-value pairs
     pub fn from_key_value_pairs(
-        pairs: &[StringStringEntryProto],
+        pairs: Vec<StringStringEntryProto>,
         loader: Arc<ExternalDataLoader>,
     ) -> Result<Self, Error> {
         let mut location: Option<String> = None;
@@ -27,18 +27,12 @@ impl ExternalDataInfo {
         let mut length: Option<u64> = None;
 
         for pair in pairs {
-            let key = pair.key.as_deref().unwrap_or("");
-            let value = pair.value.as_deref().unwrap_or("");
-
-            match key {
-                "location" => location = Some(value.to_string()),
-                "offset" => {
-                    offset = value.parse::<u64>().ok();
-                }
-                "length" => {
-                    length = value.parse::<u64>().ok();
-                }
-                _ => {} // ignore unknown keys
+            let value = pair.value;
+            match pair.key.as_deref().unwrap_or("") {
+                "location" => location = value,
+                "offset" => offset = value.as_deref().and_then(|v| v.parse::<u64>().ok()),
+                "length" => length = value.as_deref().and_then(|v| v.parse::<u64>().ok()),
+                _ => {}
             }
         }
 
