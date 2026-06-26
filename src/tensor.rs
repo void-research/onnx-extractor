@@ -123,11 +123,11 @@ impl TensorData {
         match self {
             TensorData::Raw(b) => b.len(),
             TensorData::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
-            TensorData::F32(v) => v.len() * mem::size_of::<f32>(),
-            TensorData::F64(v) => v.len() * mem::size_of::<f64>(),
-            TensorData::I32(v) => v.len() * mem::size_of::<i32>(),
-            TensorData::I64(v) => v.len() * mem::size_of::<i64>(),
-            TensorData::U64(v) => v.len() * mem::size_of::<u64>(),
+            TensorData::F32(v) => mem::size_of_val(v.as_slice()),
+            TensorData::F64(v) => mem::size_of_val(v.as_slice()),
+            TensorData::I32(v) => mem::size_of_val(v.as_slice()),
+            TensorData::I64(v) => mem::size_of_val(v.as_slice()),
+            TensorData::U64(v) => mem::size_of_val(v.as_slice()),
         }
     }
 

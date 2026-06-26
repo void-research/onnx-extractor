@@ -33,7 +33,7 @@ impl Model {
         // Extract model directory for external data loading
         let model_dir = path
             .parent()
-            .map(|p| p.to_path_buf())
+            .map(Path::to_path_buf)
             .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
 
         Self::load_from_bytes_with_dir_bytes(bytes, Some(model_dir))
@@ -59,18 +59,15 @@ impl Model {
         let external_data_loader = model_dir.map(|dir| Arc::new(ExternalDataLoader::new(dir)));
 
         let mut metadata = HashMap::with_capacity(model.metadata_props.len());
-        for mut prop in model.metadata_props {
-            if let Some(key) = prop.key.take() {
-                metadata.insert(key, prop.value.take().unwrap_or_default());
+        for prop in model.metadata_props {
+            if let Some(key) = prop.key {
+                metadata.insert(key, prop.value.unwrap_or_default());
             }
         }
 
         let mut opsets = HashMap::with_capacity(model.opset_import.len());
-        for mut opset in model.opset_import {
-            opsets.insert(
-                opset.domain.take().unwrap_or_default(),
-                opset.version.unwrap_or(0),
-            );
+        for opset in model.opset_import {
+            opsets.insert(opset.domain.unwrap_or_default(), opset.version.unwrap_or(0));
         }
 
         Ok(Model {

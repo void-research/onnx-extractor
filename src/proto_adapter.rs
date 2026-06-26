@@ -4,24 +4,21 @@ use crate::{
     AttributeProto, AttributeValue, DataType, Error, Graph, NodeProto, Operation, Tensor,
     TensorProto,
 };
-use std::{collections::HashMap, mem, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 /// Centralised adapter functions that translate generated protobuf types into
 /// crate-native types. Keep all direct proto-field usage here so future changes
 /// to `onnx.proto` need only update this file.
 ///
 /// Zero-copy policy: we prefer moving/borrowing from the generated proto
-/// structures. We avoid cloning where `prost` provides owned fields and use
-/// `drain/take` where appropriate.
+/// structures. We avoid cloning where `prost` provides owned fields.
 ///
 /// Create Tensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
-    mut tensor: TensorProto,
+    tensor: TensorProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<Tensor, Error> {
-    let shape: Vec<i64> = std::mem::take(&mut tensor.dims);
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
-    let name = tensor.name.take().unwrap_or_default();
 
     // Determine data location (internal vs external vs mmap-backed raw)
     let data = if !tensor.external_data.is_empty() {
@@ -35,23 +32,17 @@ pub(crate) fn tensor_from_proto(
                 "Tensor has external data but no external data loader was provided".to_string(),
             ));
         }
-    } else if let Some(raw) = tensor.raw_data.take() {
+    } else if let Some(raw) = tensor.raw_data {
         // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
         TensorDataLocation::Mmap(raw)
     } else {
         match data_type {
             DataType::Undefined => TensorDataLocation::None,
-            DataType::String => TensorDataLocation::MmapStrings(mem::take(&mut tensor.string_data)),
-            DataType::Float | DataType::Complex64 => {
-                TensorDataLocation::F32(mem::take(&mut tensor.float_data))
-            }
-            DataType::Double | DataType::Complex128 => {
-                TensorDataLocation::F64(mem::take(&mut tensor.double_data))
-            }
-            DataType::Int64 => TensorDataLocation::I64(mem::take(&mut tensor.int64_data)),
-            DataType::Uint32 | DataType::Uint64 => {
-                TensorDataLocation::U64(mem::take(&mut tensor.uint64_data))
-            }
+            DataType::String => TensorDataLocation::MmapStrings(tensor.string_data),
+            DataType::Float | DataType::Complex64 => TensorDataLocation::F32(tensor.float_data),
+            DataType::Double | DataType::Complex128 => TensorDataLocation::F64(tensor.double_data),
+            DataType::Int64 => TensorDataLocation::I64(tensor.int64_data),
+            DataType::Uint32 | DataType::Uint64 => TensorDataLocation::U64(tensor.uint64_data),
             DataType::Int32
             | DataType::Int16
             | DataType::Int8
@@ -69,29 +60,34 @@ pub(crate) fn tensor_from_proto(
             | DataType::Float8e5m2
             | DataType::Float8e5m2fnuz
             | DataType::Float8e8m0
-            | DataType::Float4e2m1 => TensorDataLocation::I32(mem::take(&mut tensor.int32_data)),
+            | DataType::Float4e2m1 => TensorDataLocation::I32(tensor.int32_data),
         }
     };
 
-    Ok(Tensor::new(name, shape, data_type, data))
+    Ok(Tensor::new(
+        tensor.name.unwrap_or_default(),
+        tensor.dims,
+        data_type,
+        data,
+    ))
 }
 
 /// Create Operation from ONNX NodeProto
 pub(crate) fn operation_from_node_proto(
-    mut node: NodeProto,
+    node: NodeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<Operation, Error> {
     let mut attributes = HashMap::with_capacity(node.attribute.len());
 
-    for mut attr in node.attribute.drain(..) {
+    for mut attr in node.attribute {
         let attr_name = attr.name.take().unwrap_or_default();
         let value = parse_attribute_proto(attr, external_data_loader)?;
         attributes.insert(attr_name, value);
     }
 
     Ok(Operation::new(
-        node.name.take().unwrap_or_default(),
-        node.op_type.take().unwrap_or_default(),
+        node.name.unwrap_or_default(),
+        node.op_type.unwrap_or_default(),
         node.input,
         node.output,
         attributes,
@@ -104,16 +100,16 @@ pub(crate) fn operation_from_node_proto(
 /// mandatory UTF-8 validation during parsing. This allows zero-copy moves from
 /// the protobuf structure.
 pub(crate) fn parse_attribute_proto(
-    mut attr: AttributeProto,
+    attr: AttributeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
 ) -> Result<AttributeValue, Error> {
     let attr_type = attr.r#type.unwrap_or(0);
     match attr_type {
-        1 => Ok(AttributeValue::Float(attr.f.take().unwrap_or(0.0))),
-        2 => Ok(AttributeValue::Int(attr.i.take().unwrap_or(0))),
-        3 => Ok(AttributeValue::String(attr.s.take().unwrap_or_default())),
+        1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
+        2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
+        3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
         4 => {
-            if let Some(tensor) = attr.t.take() {
+            if let Some(tensor) = attr.t {
                 // Note: Tensor attributes don't have external data loader since they're inline
                 let onnx_tensor = tensor_from_proto(tensor, &None)?;
                 Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
@@ -122,25 +118,25 @@ pub(crate) fn parse_attribute_proto(
             }
         }
         5 => {
-            if let Some(graph) = attr.g.take() {
+            if let Some(graph) = attr.g {
                 let onnx_graph = Graph::from_proto(graph, external_data_loader.clone())?;
                 Ok(AttributeValue::Graph(Box::new(onnx_graph)))
             } else {
                 Err(Error::MissingField("graph attribute data".to_string()))
             }
         }
-        6 => Ok(AttributeValue::Floats(mem::take(&mut attr.floats))),
-        7 => Ok(AttributeValue::Ints(mem::take(&mut attr.ints))),
-        8 => Ok(AttributeValue::Strings(mem::take(&mut attr.strings))),
+        6 => Ok(AttributeValue::Floats(attr.floats)),
+        7 => Ok(AttributeValue::Ints(attr.ints)),
+        8 => Ok(AttributeValue::Strings(attr.strings)),
         9 => Ok(AttributeValue::Tensors(
             attr.tensors
-                .drain(..)
+                .into_iter()
                 .map(|tensor| tensor_from_proto(tensor, external_data_loader))
                 .collect::<Result<Box<[Tensor]>, Error>>()?,
         )),
         10 => Ok(AttributeValue::Graphs(
             attr.graphs
-                .drain(..)
+                .into_iter()
                 .map(|graph| Graph::from_proto(graph, external_data_loader.clone()))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
