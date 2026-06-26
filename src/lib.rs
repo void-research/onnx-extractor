@@ -51,18 +51,20 @@ mod onnx_generated {
 pub(crate) mod proto_adapter;
 pub(crate) use onnx_generated::*;
 
+pub mod attribute_value;
+pub mod data_type;
 pub mod error;
 pub mod external_data;
 pub mod graph;
 pub mod model;
 pub mod operation;
 pub mod tensor;
-pub mod types;
 
+pub use attribute_value::AttributeValue;
+pub use data_type::DataType;
 pub use error::Error;
 pub use graph::Graph;
 pub use model::Model;
 pub use operation::Operation;
 pub use prost::bytes::Bytes;
 pub use tensor::{Tensor, TensorData, TensorDataRef};
-pub use types::{AttributeValue, DataType};
