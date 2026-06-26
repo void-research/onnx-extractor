@@ -80,10 +80,7 @@ pub(crate) fn operation_from_node_proto(
     let attributes: HashMap<String, AttributeValue> = node
         .attribute
         .into_iter()
-        .map(|mut attr| {
-            let attr_name = attr.name.take().unwrap_or_default();
-            parse_attribute_proto(attr, external_data_loader).map(|v| (attr_name, v))
-        })
+        .map(|attr| parse_attribute_proto(attr, external_data_loader))
         .collect::<Result<HashMap<_, _>, Error>>()?;
 
     Ok(Operation::new(
@@ -95,7 +92,7 @@ pub(crate) fn operation_from_node_proto(
     ))
 }
 
-/// Parse ONNX attribute into AttributeValue
+/// Parse ONNX attribute into a (name, AttributeValue) pair
 ///
 /// Strings and string arrays are stored as `prost::bytes::Bytes` to avoid
 /// mandatory UTF-8 validation during parsing. This allows zero-copy moves from
@@ -103,9 +100,9 @@ pub(crate) fn operation_from_node_proto(
 pub(crate) fn parse_attribute_proto(
     attr: AttributeProto,
     external_data_loader: &Option<Arc<ExternalDataLoader>>,
-) -> Result<AttributeValue, Error> {
+) -> Result<(String, AttributeValue), Error> {
     let attr_type = attr.r#type.unwrap_or(0);
-    match attr_type {
+    let value = match attr_type {
         1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
         2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
         3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
@@ -142,5 +139,7 @@ pub(crate) fn parse_attribute_proto(
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
         _ => Err(Error::Unsupported(format!("attribute type: {}", attr_type))),
-    }
+    }?;
+
+    Ok((attr.name.unwrap_or_default(), value))
 }
