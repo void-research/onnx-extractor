@@ -49,7 +49,7 @@ fn test_operation_queries() {
     // operation types list should be non-empty and getting operations by type should work
     let op_types = model.graph().operation_types();
     assert!(!op_types.is_empty(), "operation_types should not be empty");
-    let first_type = &op_types[0];
+    let first_type = op_types.iter().next().unwrap();
     let mut ops_of_type = model.graph().get_operations_by_type(first_type);
     assert!(
         ops_of_type.next().is_some(),
