@@ -293,5 +293,5 @@ impl Tensor {
 }
 
 fn slice_as_u8<T: Copy>(slice: &[T]) -> &[u8] {
-    unsafe { slice::from_raw_parts(slice.as_ptr() as *const u8, mem::size_of_val(slice)) }
+    unsafe { slice::from_raw_parts(slice.as_ptr().cast::<u8>(), mem::size_of_val(slice)) }
 }
