@@ -106,21 +106,19 @@ pub(crate) fn parse_attribute_proto(
         2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
         3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
         4 => {
-            if let Some(tensor) = attr.t {
-                // Note: Tensor attributes don't have external data loader since they're inline
-                let onnx_tensor = tensor_from_proto(tensor, &None)?;
-                Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
-            } else {
-                Err(Error::MissingField("tensor attribute data".to_string()))
-            }
+            let tensor = attr
+                .t
+                .ok_or_else(|| Error::MissingField("tensor attribute data".to_string()))?;
+            // Note: Tensor attributes don't have external data loader since they're inline
+            let onnx_tensor = tensor_from_proto(tensor, &None)?;
+            Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
         }
         5 => {
-            if let Some(graph) = attr.g {
-                let onnx_graph = Graph::from_proto(graph, external_data_loader.clone())?;
-                Ok(AttributeValue::Graph(Box::new(onnx_graph)))
-            } else {
-                Err(Error::MissingField("graph attribute data".to_string()))
-            }
+            let graph = attr
+                .g
+                .ok_or_else(|| Error::MissingField("graph attribute data".to_string()))?;
+            let onnx_graph = Graph::from_proto(graph, external_data_loader.clone())?;
+            Ok(AttributeValue::Graph(Box::new(onnx_graph)))
         }
         6 => Ok(AttributeValue::Floats(attr.floats)),
         7 => Ok(AttributeValue::Ints(attr.ints)),

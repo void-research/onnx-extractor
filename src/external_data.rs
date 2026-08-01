@@ -28,10 +28,10 @@ impl ExternalDataInfo {
 
         for pair in pairs {
             let value = pair.value;
-            match pair.key.as_deref().unwrap_or("") {
-                "location" => location = value,
-                "offset" => offset = value.as_deref().and_then(|v| v.parse::<u64>().ok()),
-                "length" => length = value.as_deref().and_then(|v| v.parse::<u64>().ok()),
+            match pair.key.as_deref() {
+                Some("location") => location = value,
+                Some("offset") => offset = value.as_deref().and_then(|v| v.parse().ok()),
+                Some("length") => length = value.as_deref().and_then(|v| v.parse().ok()),
                 _ => {}
             }
         }

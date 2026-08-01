@@ -49,15 +49,13 @@ impl Graph {
             let name = input.name.unwrap_or_default();
 
             // If the name is already in tensors, it's an initializer, so we skip adding it to inputs/tensors
-            if !onnx_graph.tensors.contains_key(&name) {
+            if let Entry::Vacant(e) = onnx_graph.tensors.entry(name.clone()) {
+                onnx_graph.inputs.push(name);
                 if let Some(type_proto::Value::TensorType(tensor_type)) =
                     input.r#type.and_then(|t| t.value)
                 {
-                    onnx_graph.inputs.push(name.clone());
-                    let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
-                    onnx_graph.tensors.insert(name, onnx_tensor);
-                } else {
-                    onnx_graph.inputs.push(name);
+                    let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
+                    e.insert(onnx_tensor);
                 }
             }
         }
@@ -78,16 +76,14 @@ impl Graph {
         // Parse output tensor info and extract output names
         for output in graph.output {
             let name = output.name.unwrap_or_default();
+            onnx_graph.outputs.push(name.clone());
 
-            if !onnx_graph.tensors.contains_key(&name)
+            if let Entry::Vacant(e) = onnx_graph.tensors.entry(name)
                 && let Some(type_proto::Value::TensorType(tensor_type)) =
                     output.r#type.and_then(|t| t.value)
             {
-                onnx_graph.outputs.push(name.clone());
-                let onnx_tensor = Tensor::from_tensor_type(name.clone(), &tensor_type)?;
-                onnx_graph.tensors.insert(name, onnx_tensor);
-            } else {
-                onnx_graph.outputs.push(name);
+                let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
+                e.insert(onnx_tensor);
             }
         }
 

@@ -34,9 +34,9 @@ impl Model {
         let model_dir = path
             .parent()
             .map(Path::to_path_buf)
-            .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+            .or_else(|| std::env::current_dir().ok());
 
-        Self::load_from_bytes_with_dir_bytes(bytes, Some(model_dir))
+        Self::load_from_bytes_with_dir_bytes(bytes, model_dir)
     }
 
     /// Load ONNX model from owned byte vector
