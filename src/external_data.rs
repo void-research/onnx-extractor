@@ -128,25 +128,20 @@ impl ExternalDataLoader {
     /// Extract a slice of data based on offset and length
     pub(crate) fn slice_data(&self, data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         let start = info.offset.unwrap_or(0) as usize;
-        let end = if let Some(len) = info.length {
-            start.saturating_add(len as usize)
-        } else {
-            data.len()
-        };
+        let end = info
+            .length
+            .map_or(data.len(), |len| start.saturating_add(len as usize));
 
         if start > data.len() {
             return Err(Error::InvalidModel(format!(
-                "External data offset {} exceeds file size {}",
-                start,
+                "External data offset {start} exceeds file size {}",
                 data.len()
             )));
         }
 
         if end > data.len() {
             return Err(Error::InvalidModel(format!(
-                "External data range {}..{} exceeds file size {}",
-                start,
-                end,
+                "External data range {start}..{end} exceeds file size {}",
                 data.len()
             )));
         }
