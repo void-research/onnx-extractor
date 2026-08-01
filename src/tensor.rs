@@ -199,32 +199,30 @@ impl Tensor {
     }
 
     pub(crate) fn from_tensor_type(name: String, tensor_type: &ProtoTensor) -> Result<Self, Error> {
-        let shape = if let Some(shape_proto) = &tensor_type.shape {
-            shape_proto
-                .dim
-                .iter()
-                .map(|d| match &d.value {
-                    Some(Value::DimValue(v)) => *v,
-                    _ => -1,
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let shape = tensor_type
+            .shape
+            .iter()
+            .flat_map(|s| &s.dim)
+            .map(|d| match d.value {
+                Some(Value::DimValue(v)) => v,
+                _ => -1,
+            })
+            .collect();
 
-        let elem_type = tensor_type
-            .elem_type
-            .ok_or_else(|| Error::MissingField("tensor elem_type".to_string()))?;
-        if elem_type == 0 {
-            return Err(Error::InvalidModel(
-                "tensor elem_type must not be UNDEFINED (0)".to_string(),
-            ));
-        }
+        let data_type = match tensor_type.elem_type {
+            Some(0) => {
+                return Err(Error::InvalidModel(
+                    "tensor elem_type must not be UNDEFINED (0)".to_string(),
+                ));
+            }
+            Some(t) => DataType::from_onnx_type(t),
+            None => return Err(Error::MissingField("tensor elem_type".to_string())),
+        };
 
         Ok(Tensor::new(
             name,
             shape,
-            DataType::from_onnx_type(elem_type),
+            data_type,
             TensorDataLocation::None,
         ))
     }
