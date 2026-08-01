@@ -249,79 +249,74 @@ impl Graph {
         let indent = "  ".repeat(indent_level);
         let weight_count = self.get_weight_tensors().count();
         let op_counts = self.count_operations_by_type();
-        writeln!(f, "{}ONNX Graph: {}", indent, self.name)?;
+
+        writeln!(f, "{indent}ONNX Graph: {}", self.name)?;
         writeln!(
             f,
-            "{}Inputs: {} | Outputs: {} | Operations: {} | Tensors: {}",
-            indent,
+            "{indent}Inputs: {} | Outputs: {} | Operations: {} | Tensors: {}",
             self.inputs.len(),
             self.outputs.len(),
             self.operations.len(),
             self.tensors.len()
         )?;
 
-        writeln!(f, "{}Operation types: {:?}", indent, op_counts)?;
+        writeln!(f, "{indent}Operation types: {op_counts:?}")?;
+        writeln!(f, "{indent}Weight tensors: {weight_count}")?;
+        writeln!(f, "{indent}Input Names: {:?}", self.inputs)?;
+        writeln!(f, "{indent}Output Names: {:?}", self.outputs)?;
 
-        writeln!(f, "{}Weight tensors: {}", indent, weight_count)?;
-        writeln!(f, "{}Input Names: {:?}", indent, self.inputs)?;
-        writeln!(f, "{}Output Names: {:?}", indent, self.outputs)?;
-
-        writeln!(f, "\n{}Tensors ({}):", indent, self.tensors.len())?;
+        writeln!(f, "\n{indent}Tensors ({}):", self.tensors.len())?;
         for (name, tensor) in &self.tensors {
+            let role = if self.inputs.contains(name) {
+                ", input"
+            } else if self.outputs.contains(name) {
+                ", output"
+            } else {
+                ""
+            };
+            let status = if tensor.has_data() { "data" } else { "no data" };
             writeln!(
                 f,
-                "{}  {}: {:?} ({:?}) [{}{}]",
-                indent,
-                name,
+                "{indent}  {name}: {:?} ({:?}) [{status}{role}]",
                 tensor.shape(),
-                tensor.data_type(),
-                if tensor.has_data() { "data" } else { "no data" },
-                if self.inputs.contains(name) {
-                    ", input"
-                } else if self.outputs.contains(name) {
-                    ", output"
-                } else {
-                    ""
-                }
+                tensor.data_type()
             )?;
         }
 
-        writeln!(f, "\n{}Operations ({}):", indent, self.operations.len())?;
+        writeln!(f, "\n{indent}Operations ({}):", self.operations.len())?;
         for (op_type, count) in &op_counts {
-            writeln!(f, "{}  {}: {} operations", indent, op_type, count)?;
+            writeln!(f, "{indent}  {op_type}: {count} operations")?;
         }
 
-        writeln!(f, "\n{}Operation Details:", indent)?;
+        writeln!(f, "\n{indent}Operation Details:")?;
         for op in &self.operations {
             writeln!(
                 f,
-                "{}  {} ({}): {} -> {}",
-                indent,
+                "{indent}  {} ({}): {} -> {}",
                 op.name(),
                 op.op_type(),
                 op.inputs().join(", "),
                 op.outputs().join(", ")
             )?;
+
             if !op.attributes().is_empty() {
-                let attr_keys: Box<[_]> = op.attributes().keys().collect();
-                writeln!(f, "{}    Attributes: {:?}", indent, attr_keys)?;
+                let attr_keys: Box<[&str]> = op.attributes().keys().map(String::as_str).collect();
+                writeln!(f, "{indent}    Attributes: {attr_keys:?}")?;
 
                 for (attr_name, attr_val) in op.attributes() {
                     match attr_val {
                         AttributeValue::Graph(subgraph) => {
-                            writeln!(f, "{}      {} (Subgraph):", indent, attr_name)?;
+                            writeln!(f, "{indent}      {attr_name} (Subgraph):")?;
                             subgraph.format_recursive(f, indent_level + 4)?;
                         }
                         AttributeValue::Graphs(subgraphs) => {
                             writeln!(
                                 f,
-                                "{}      {} ({} subgraphs):",
-                                indent,
-                                attr_name,
+                                "{indent}      {attr_name} ({} subgraphs):",
                                 subgraphs.len()
                             )?;
                             for (sub_idx, subgraph) in subgraphs.iter().enumerate() {
-                                writeln!(f, "{}        [{}]:", indent, sub_idx)?;
+                                writeln!(f, "{indent}        [{sub_idx}]:")?;
                                 subgraph.format_recursive(f, indent_level + 6)?;
                             }
                         }
