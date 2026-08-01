@@ -19,38 +19,26 @@ impl Graph {
         graph: GraphProto,
         external_data_loader: Option<Arc<ExternalDataLoader>>,
     ) -> Result<Self, Error> {
-        let mut onnx_graph = Graph {
-            name: graph.name.unwrap_or_default(),
-            tensors: HashMap::new(),
-            operations: Vec::new(),
-            inputs: Vec::new(),
-            outputs: Vec::new(),
-        };
-
-        // Pre-allocate based on graph sizes to avoid repeated reallocations
-        onnx_graph.tensors.reserve(
+        let mut tensors = HashMap::with_capacity(
             graph.initializer.len()
                 + graph.value_info.len()
                 + graph.input.len()
                 + graph.output.len(),
         );
-        onnx_graph.inputs.reserve(graph.input.len());
-        onnx_graph.outputs.reserve(graph.output.len());
 
         // Parse initialiser tensors (weights/constants)
         for tensor in graph.initializer {
             let onnx_tensor = proto_adapter::tensor_from_proto(tensor, &external_data_loader)?;
-            let tensor_name = onnx_tensor.name().to_string();
-            onnx_graph.tensors.insert(tensor_name, onnx_tensor);
+            tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
         }
 
         // Parse input tensor info and extract input names
+        let mut inputs = Vec::with_capacity(graph.input.len());
         for input in graph.input {
             let name = input.name.unwrap_or_default();
-
-            // If the name is already in tensors, it's an initializer, so we skip adding it to inputs/tensors
-            if let Entry::Vacant(e) = onnx_graph.tensors.entry(name.clone()) {
-                onnx_graph.inputs.push(name);
+            // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
+            if let Entry::Vacant(e) = tensors.entry(name.clone()) {
+                inputs.push(name);
                 if let Some(type_proto::Value::TensorType(tensor_type)) =
                     input.r#type.and_then(|t| t.value)
                 {
@@ -66,7 +54,7 @@ impl Graph {
                 value_info.r#type.and_then(|t| t.value)
             {
                 let name = value_info.name.unwrap_or_default();
-                if let Entry::Vacant(e) = onnx_graph.tensors.entry(name) {
+                if let Entry::Vacant(e) = tensors.entry(name) {
                     let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
                     e.insert(onnx_tensor);
                 }
@@ -74,11 +62,12 @@ impl Graph {
         }
 
         // Parse output tensor info and extract output names
+        let mut outputs = Vec::with_capacity(graph.output.len());
         for output in graph.output {
             let name = output.name.unwrap_or_default();
-            onnx_graph.outputs.push(name.clone());
+            outputs.push(name.clone());
 
-            if let Entry::Vacant(e) = onnx_graph.tensors.entry(name)
+            if let Entry::Vacant(e) = tensors.entry(name)
                 && let Some(type_proto::Value::TensorType(tensor_type)) =
                     output.r#type.and_then(|t| t.value)
             {
@@ -88,13 +77,19 @@ impl Graph {
         }
 
         // Parse operations/nodes
-        onnx_graph.operations = graph
+        let operations = graph
             .node
             .into_iter()
             .map(|node| Operation::from_node_proto(node, &external_data_loader))
             .collect::<Result<Vec<_>, Error>>()?;
 
-        Ok(onnx_graph)
+        Ok(Graph {
+            name: graph.name.unwrap_or_default(),
+            tensors,
+            operations,
+            inputs,
+            outputs,
+        })
     }
 
     /// Reference to all tensors in this graph
