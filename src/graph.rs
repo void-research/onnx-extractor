@@ -187,26 +187,25 @@ impl Graph {
         let op_count = self.operations.len();
 
         // map tensor name -> producer op index
-        let mut producer: HashMap<&str, usize> = HashMap::with_capacity(op_count);
+        let producer: HashMap<&str, usize> = self
+            .operations
+            .iter()
+            .enumerate()
+            .flat_map(|(idx, op)| {
+                op.outputs()
+                    .iter()
+                    .filter(|s| !s.is_empty())
+                    .map(move |s| (s.as_str(), idx))
+            })
+            .collect();
 
-        for (idx, op) in self.operations.iter().enumerate() {
-            for out in op.outputs() {
-                if !out.is_empty() {
-                    producer.insert(out.as_str(), idx);
-                }
-            }
-        }
-
-        // list of consumer op indices for each producer op index
-        let mut consumers: Vec<Vec<usize>> = vec![Vec::new(); op_count];
-        // indegree = number of inputs coming from other ops
+        // build consumer lists and in-degree counts
+        let mut consumers = vec![Vec::new(); op_count];
         let mut indegree = vec![0; op_count];
 
         for (idx, op) in self.operations.iter().enumerate() {
-            for input in op.inputs() {
-                if !input.is_empty()
-                    && let Some(&prod_idx) = producer.get(input.as_str())
-                {
+            for input in op.inputs().iter().filter(|s| !s.is_empty()) {
+                if let Some(&prod_idx) = producer.get(input.as_str()) {
                     indegree[idx] += 1;
                     consumers[prod_idx].push(idx);
                 }
@@ -217,16 +216,13 @@ impl Graph {
         let mut stack: Vec<usize> = indegree
             .iter()
             .enumerate()
-            .filter(|&(_, &d)| d == 0)
-            .map(|(idx, _)| idx)
+            .filter_map(|(idx, &d)| (d == 0).then_some(idx))
             .collect();
 
-        let mut ordered: Vec<&Operation> = Vec::with_capacity(op_count);
+        let mut ordered = Vec::with_capacity(op_count);
 
         while let Some(idx) = stack.pop() {
-            let op = &self.operations[idx];
-            ordered.push(op);
-
+            ordered.push(&self.operations[idx]);
             for &cidx in &consumers[idx] {
                 indegree[cidx] -= 1;
                 if indegree[cidx] == 0 {
@@ -235,12 +231,12 @@ impl Graph {
             }
         }
 
-        if ordered.len() != op_count {
+        if ordered.len() == op_count {
+            Ok(ordered)
+        } else {
             Err(Error::InvalidModel(
                 "Graph has cycles or unresolved dependencies".to_string(),
             ))
-        } else {
-            Ok(ordered)
         }
     }
 
