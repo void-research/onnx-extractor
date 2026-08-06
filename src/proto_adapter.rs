@@ -1,3 +1,7 @@
+//! Centralised adapter functions that translate generated protobuf types into
+//! crate-native types. Keep all direct proto-field usage here so future changes
+//! to `onnx.proto` need only update this file.
+
 use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
