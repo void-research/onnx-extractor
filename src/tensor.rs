@@ -5,15 +5,10 @@ use crate::{DataType, Error, external_data::ExternalDataInfo};
 
 #[derive(Debug, Clone)]
 pub(crate) enum TensorDataLocation {
-    /// No data associated with this tensor
     None,
-    /// Data is stored in an external file
     External(ExternalDataInfo),
-    /// Raw data as a Bytes reference (mmap-backed when loaded from file)
     Mmap(Bytes),
-    /// String data as vectors of Bytes references (mmap-backed when loaded from file)
     MmapStrings(Vec<Bytes>),
-    // Numeric data (memory taken from TensorProto)
     F32(Vec<f32>),
     F64(Vec<f64>),
     I64(Vec<i64>),
