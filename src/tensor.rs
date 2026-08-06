@@ -252,6 +252,6 @@ impl Tensor {
     }
 }
 
-fn slice_as_u8<T: Copy>(slice: &[T]) -> &[u8] {
+fn slice_as_u8<T>(slice: &[T]) -> &[u8] {
     unsafe { slice::from_raw_parts(slice.as_ptr().cast::<u8>(), mem::size_of_val(slice)) }
 }
