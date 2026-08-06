@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::external_data::ExternalDataLoader;
-use crate::{Error, Graph, ModelProto};
+use crate::{Error, Graph, ModelProto, proto_adapter};
 
 /// Main ONNX model container
 pub struct Model {
@@ -71,7 +71,7 @@ impl Model {
             .collect();
 
         Ok(Model {
-            graph: Graph::from_proto(graph, external_data_loader)?,
+            graph: proto_adapter::graph_from_proto(graph, external_data_loader)?,
             ir_version: model.ir_version.unwrap_or(0),
             producer_name: model.producer_name.unwrap_or_default(),
             producer_version: model.producer_version.unwrap_or_default(),

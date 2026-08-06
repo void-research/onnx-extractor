@@ -1,10 +1,7 @@
 use prost::bytes::Bytes;
 use std::{mem, slice};
 
-use crate::{
-    DataType, Error, external_data::ExternalDataInfo, tensor_shape_proto::dimension::Value,
-    type_proto::Tensor as ProtoTensor,
-};
+use crate::{DataType, Error, external_data::ExternalDataInfo};
 
 #[derive(Debug, Clone)]
 pub(crate) enum TensorDataLocation {
@@ -196,35 +193,6 @@ impl Tensor {
             data_type,
             data,
         }
-    }
-
-    pub(crate) fn from_tensor_type(name: String, tensor_type: &ProtoTensor) -> Result<Self, Error> {
-        let shape = tensor_type
-            .shape
-            .iter()
-            .flat_map(|s| &s.dim)
-            .map(|d| match d.value {
-                Some(Value::DimValue(v)) => v,
-                _ => -1,
-            })
-            .collect();
-
-        let data_type = match tensor_type.elem_type {
-            Some(0) => {
-                return Err(Error::InvalidModel(
-                    "tensor elem_type must not be UNDEFINED (0)".to_string(),
-                ));
-            }
-            Some(t) => DataType::from_onnx_type(t),
-            None => return Err(Error::MissingField("tensor elem_type".to_string())),
-        };
-
-        Ok(Tensor::new(
-            name,
-            shape,
-            data_type,
-            TensorDataLocation::None,
-        ))
     }
 
     /// Tensor name

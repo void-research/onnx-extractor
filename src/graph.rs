@@ -1,8 +1,6 @@
-use std::collections::{HashMap, HashSet, hash_map::Entry};
-use std::sync::Arc;
+use std::collections::{HashMap, HashSet};
 
-use crate::external_data::ExternalDataLoader;
-use crate::{AttributeValue, Error, GraphProto, Operation, Tensor, proto_adapter, type_proto};
+use crate::{AttributeValue, Error, Operation, Tensor};
 
 /// Represents a computational graph in an ONNX model (either the root graph or a nested subgraph)
 #[derive(Debug)]
@@ -15,81 +13,20 @@ pub struct Graph {
 }
 
 impl Graph {
-    pub(crate) fn from_proto(
-        graph: GraphProto,
-        external_data_loader: Option<Arc<ExternalDataLoader>>,
-    ) -> Result<Self, Error> {
-        let mut tensors = HashMap::with_capacity(
-            graph.initializer.len()
-                + graph.value_info.len()
-                + graph.input.len()
-                + graph.output.len(),
-        );
-
-        // Parse initialiser tensors (weights/constants)
-        for tensor in graph.initializer {
-            let onnx_tensor = proto_adapter::tensor_from_proto(tensor, &external_data_loader)?;
-            tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
-        }
-
-        // Parse input tensor info and extract input names
-        let mut inputs = Vec::with_capacity(graph.input.len());
-        for input in graph.input {
-            let name = input.name.unwrap_or_default();
-            // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
-            if let Entry::Vacant(e) = tensors.entry(name.clone()) {
-                inputs.push(name);
-                if let Some(type_proto::Value::TensorType(tensor_type)) =
-                    input.r#type.and_then(|t| t.value)
-                {
-                    let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
-                    e.insert(onnx_tensor);
-                }
-            }
-        }
-
-        // Parse value_info for intermediate tensor shapes and types
-        for value_info in graph.value_info {
-            if let Some(type_proto::Value::TensorType(tensor_type)) =
-                value_info.r#type.and_then(|t| t.value)
-            {
-                let name = value_info.name.unwrap_or_default();
-                if let Entry::Vacant(e) = tensors.entry(name) {
-                    let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
-                    e.insert(onnx_tensor);
-                }
-            }
-        }
-
-        // Parse output tensor info and extract output names
-        let mut outputs = Vec::with_capacity(graph.output.len());
-        for output in graph.output {
-            let name = output.name.unwrap_or_default();
-            outputs.push(name.clone());
-
-            if let Entry::Vacant(e) = tensors.entry(name)
-                && let Some(type_proto::Value::TensorType(tensor_type)) =
-                    output.r#type.and_then(|t| t.value)
-            {
-                let onnx_tensor = Tensor::from_tensor_type(e.key().clone(), &tensor_type)?;
-                e.insert(onnx_tensor);
-            }
-        }
-
-        // Parse operations/nodes
-        let operations = graph
-            .node
-            .into_iter()
-            .map(|node| Operation::from_node_proto(node, &external_data_loader))
-            .collect::<Result<Vec<_>, Error>>()?;
-
-        Ok(Graph {
-            name: graph.name.unwrap_or_default(),
+    pub(crate) fn new(
+        name: String,
+        tensors: HashMap<String, Tensor>,
+        operations: Vec<Operation>,
+        inputs: Vec<String>,
+        outputs: Vec<String>,
+    ) -> Self {
+        Graph {
+            name,
             tensors,
             operations,
             inputs,
             outputs,
-        })
+        }
     }
 
     /// Reference to all tensors in this graph

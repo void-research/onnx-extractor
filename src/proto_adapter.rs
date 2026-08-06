@@ -1,18 +1,12 @@
 use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
-    AttributeProto, AttributeValue, DataType, Error, Graph, NodeProto, Operation, Tensor,
-    TensorProto,
+    AttributeProto, AttributeValue, DataType, Error, Graph, GraphProto, NodeProto, Operation,
+    Tensor, TensorProto, tensor_shape_proto::dimension::Value, type_proto,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::collections::{HashMap, hash_map::Entry};
+use std::sync::Arc;
 
-/// Centralised adapter functions that translate generated protobuf types into
-/// crate-native types. Keep all direct proto-field usage here so future changes
-/// to `onnx.proto` need only update this file.
-///
-/// Zero-copy policy: we prefer moving/borrowing from the generated proto
-/// structures. We avoid cloning where `prost` provides owned fields.
-///
 /// Create Tensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
     tensor: TensorProto,
@@ -71,6 +65,114 @@ pub(crate) fn tensor_from_proto(
     ))
 }
 
+/// Create Tensor from TypeProto.Tensor (shape and elem_type only, no data)
+fn tensor_from_tensor_type(
+    name: String,
+    tensor_type: &type_proto::Tensor,
+) -> Result<Tensor, Error> {
+    let shape = tensor_type
+        .shape
+        .iter()
+        .flat_map(|s| &s.dim)
+        .map(|d| match d.value {
+            Some(Value::DimValue(v)) => v,
+            _ => -1,
+        })
+        .collect();
+
+    let data_type = match tensor_type.elem_type {
+        Some(0) => {
+            return Err(Error::InvalidModel(
+                "tensor elem_type must not be UNDEFINED (0)".to_string(),
+            ));
+        }
+        Some(t) => DataType::from_onnx_type(t),
+        None => return Err(Error::MissingField("tensor elem_type".to_string())),
+    };
+
+    Ok(Tensor::new(
+        name,
+        shape,
+        data_type,
+        TensorDataLocation::None,
+    ))
+}
+
+/// Create Graph from ONNX GraphProto
+pub(crate) fn graph_from_proto(
+    graph: GraphProto,
+    external_data_loader: Option<Arc<ExternalDataLoader>>,
+) -> Result<Graph, Error> {
+    let mut tensors = HashMap::with_capacity(
+        graph.initializer.len() + graph.value_info.len() + graph.input.len() + graph.output.len(),
+    );
+
+    // Parse initialiser tensors (weights/constants)
+    for tensor in graph.initializer {
+        let onnx_tensor = tensor_from_proto(tensor, &external_data_loader)?;
+        tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
+    }
+
+    // Parse input tensor info and extract input names
+    let mut inputs = Vec::with_capacity(graph.input.len());
+    for input in graph.input {
+        let name = input.name.unwrap_or_default();
+        // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
+        if let Entry::Vacant(e) = tensors.entry(name.clone()) {
+            inputs.push(name);
+            if let Some(type_proto::Value::TensorType(tensor_type)) =
+                input.r#type.and_then(|t| t.value)
+            {
+                let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
+                e.insert(onnx_tensor);
+            }
+        }
+    }
+
+    // Parse value_info for intermediate tensor shapes and types
+    for value_info in graph.value_info {
+        if let Some(type_proto::Value::TensorType(tensor_type)) =
+            value_info.r#type.and_then(|t| t.value)
+        {
+            let name = value_info.name.unwrap_or_default();
+            if let Entry::Vacant(e) = tensors.entry(name) {
+                let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
+                e.insert(onnx_tensor);
+            }
+        }
+    }
+
+    // Parse output tensor info and extract output names
+    let mut outputs = Vec::with_capacity(graph.output.len());
+    for output in graph.output {
+        let name = output.name.unwrap_or_default();
+        outputs.push(name.clone());
+
+        if let Entry::Vacant(e) = tensors.entry(name)
+            && let Some(type_proto::Value::TensorType(tensor_type)) =
+                output.r#type.and_then(|t| t.value)
+        {
+            let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
+            e.insert(onnx_tensor);
+        }
+    }
+
+    // Parse operations/nodes
+    let operations = graph
+        .node
+        .into_iter()
+        .map(|node| operation_from_node_proto(node, &external_data_loader))
+        .collect::<Result<Vec<_>, Error>>()?;
+
+    Ok(Graph::new(
+        graph.name.unwrap_or_default(),
+        tensors,
+        operations,
+        inputs,
+        outputs,
+    ))
+}
+
 /// Create Operation from ONNX NodeProto
 pub(crate) fn operation_from_node_proto(
     node: NodeProto,
@@ -116,7 +218,7 @@ pub(crate) fn parse_attribute_proto(
             let graph = attr
                 .g
                 .ok_or_else(|| Error::MissingField("graph attribute data".to_string()))?;
-            let onnx_graph = Graph::from_proto(graph, external_data_loader.clone())?;
+            let onnx_graph = graph_from_proto(graph, external_data_loader.clone())?;
             Ok(AttributeValue::Graph(Box::new(onnx_graph)))
         }
         6 => Ok(AttributeValue::Floats(attr.floats)),
@@ -131,7 +233,7 @@ pub(crate) fn parse_attribute_proto(
         10 => Ok(AttributeValue::Graphs(
             attr.graphs
                 .into_iter()
-                .map(|graph| Graph::from_proto(graph, external_data_loader.clone()))
+                .map(|graph| graph_from_proto(graph, external_data_loader.clone()))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
         n => Err(Error::Unsupported(format!("attribute type: {}", n))),

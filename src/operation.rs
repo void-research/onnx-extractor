@@ -1,7 +1,5 @@
-use crate::external_data::ExternalDataLoader;
-use crate::{AttributeValue, Error, NodeProto, proto_adapter};
+use crate::AttributeValue;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Information about an ONNX operation/node
 #[derive(Debug)]
@@ -29,6 +27,7 @@ impl Operation {
             attributes,
         }
     }
+
     /// Operation name
     pub fn name(&self) -> &str {
         &self.name
@@ -59,12 +58,5 @@ impl Operation {
     /// To remove or drain attributes directly.
     pub fn attributes_mut(&mut self) -> &mut HashMap<String, AttributeValue> {
         &mut self.attributes
-    }
-
-    pub(crate) fn from_node_proto(
-        node: NodeProto,
-        external_data_loader: &Option<Arc<ExternalDataLoader>>,
-    ) -> Result<Self, Error> {
-        proto_adapter::operation_from_node_proto(node, external_data_loader)
     }
 }
