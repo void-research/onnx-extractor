@@ -24,11 +24,8 @@ pub(crate) enum TensorDataLocation {
 /// Zero-copy tensor data reference
 #[derive(Debug, Clone)]
 pub enum TensorDataRef<'a> {
-    /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
-    /// String tensor elements, each Arc-backed
     Strings(&'a [Bytes]),
-    /// Typed numeric data
     F32(&'a [f32]),
     F64(&'a [f64]),
     I32(&'a [i32]),
@@ -99,11 +96,8 @@ impl<'a> TensorDataRef<'a> {
 /// Zero-copy owned tensor data
 #[derive(Debug, Clone)]
 pub enum TensorData {
-    /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
-    /// String tensor elements, each Arc-backed
     Strings(Vec<Bytes>),
-    /// Typed numeric data
     F32(Vec<f32>),
     F64(Vec<f64>),
     I32(Vec<i32>),
