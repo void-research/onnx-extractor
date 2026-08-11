@@ -135,14 +135,13 @@ pub(crate) fn graph_from_proto(
 
     // Parse value_info for intermediate tensor shapes and types
     for value_info in graph.value_info {
-        if let Some(type_proto::Value::TensorType(tensor_type)) =
-            value_info.r#type.and_then(|t| t.value)
+        let name = value_info.name.unwrap_or_default();
+        if let Entry::Vacant(e) = tensors.entry(name)
+            && let Some(type_proto::Value::TensorType(tensor_type)) =
+                value_info.r#type.and_then(|t| t.value)
         {
-            let name = value_info.name.unwrap_or_default();
-            if let Entry::Vacant(e) = tensors.entry(name) {
-                let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
-                e.insert(onnx_tensor);
-            }
+            let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
+            e.insert(onnx_tensor);
         }
     }
 
