@@ -99,30 +99,8 @@ impl ExternalDataLoader {
 
     /// Memory-map entire file as Bytes
     pub(crate) fn load_file(&self, path: &Path) -> Result<Bytes, Error> {
-        let file = File::open(path).map_err(|e| {
-            Error::Io(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "Failed to open external data file '{}': {}",
-                    path.display(),
-                    e
-                ),
-            ))
-        })?;
-
-        let mmap = unsafe {
-            Mmap::map(&file).map_err(|e| {
-                Error::Io(std::io::Error::new(
-                    e.kind(),
-                    format!(
-                        "Failed to mmap external data file '{}': {}",
-                        path.display(),
-                        e
-                    ),
-                ))
-            })?
-        };
-
+        let file = File::open(path)?;
+        let mmap = unsafe { Mmap::map(&file)? };
         Ok(Bytes::from_owner(mmap))
     }
 
