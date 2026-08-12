@@ -7,17 +7,15 @@ use std::sync::{Arc, RwLock};
 
 use crate::{Error, StringStringEntryProto};
 
-/// Metadata for external tensor data
 #[derive(Debug, Clone)]
-pub(crate) struct ExternalDataInfo {
-    pub location: String,
-    pub offset: Option<u64>,
-    pub length: Option<u64>,
-    pub loader: Arc<ExternalDataLoader>,
+pub struct ExternalDataInfo {
+    location: String,
+    offset: Option<u64>,
+    length: Option<u64>,
+    loader: Arc<ExternalDataLoader>,
 }
 
 impl ExternalDataInfo {
-    /// Parse external data info from key-value pairs
     pub fn from_key_value_pairs(
         pairs: Vec<StringStringEntryProto>,
         loader: Arc<ExternalDataLoader>,
@@ -49,32 +47,29 @@ impl ExternalDataInfo {
         })
     }
 
-    /// Load the external data using the stored loader
     pub fn load_data(&self) -> Result<Bytes, Error> {
         self.loader.load_data(self)
     }
 }
 
-/// Manages lazy loading and caching of external tensor data files
-pub(crate) struct ExternalDataLoader {
+pub struct ExternalDataLoader {
     model_dir: PathBuf,
     cache: RwLock<HashMap<String, Bytes>>,
 }
 
 impl ExternalDataLoader {
-    /// Create a new external data loader for a given model directory
-    pub(crate) fn new(model_dir: PathBuf) -> Self {
+    pub fn new(model_dir: PathBuf) -> Self {
         ExternalDataLoader {
             model_dir,
             cache: RwLock::new(HashMap::new()),
         }
     }
 
-    /// Load tensor data from external file with optional offset and length
-    ///
-    /// This method lazily loads the entire external file into the cache on first access,
-    /// then returns a slice of the cached data based on offset and length.
-    pub(crate) fn load_data(&self, info: &ExternalDataInfo) -> Result<Bytes, Error> {
+    // This method lazily loads the entire external file into the cache on first access,
+    // then returns a slice of the cached data based on offset and length.
+    // It uses a slower hold lock while loading style to stop multiple threads from
+    // loading the same file into memory if both race past read.
+    fn load_data(&self, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         {
             let cache = self.cache.read().unwrap();
             if let Some(cached_data) = cache.get(&info.location) {
@@ -97,15 +92,13 @@ impl ExternalDataLoader {
         Ok(slice)
     }
 
-    /// Memory-map entire file as Bytes
-    pub(crate) fn load_file(&self, path: &Path) -> Result<Bytes, Error> {
+    fn load_file(&self, path: &Path) -> Result<Bytes, Error> {
         let file = File::open(path)?;
         let mmap = unsafe { Mmap::map(&file)? };
         Ok(Bytes::from_owner(mmap))
     }
 
-    /// Extract a slice of data based on offset and length
-    pub(crate) fn slice_data(&self, data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
+    fn slice_data(&self, data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         let start = info.offset.unwrap_or(0) as usize;
         let end = info
             .length
