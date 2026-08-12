@@ -27,12 +27,13 @@ impl ExternalDataInfo {
         let mut length: Option<u64> = None;
 
         for pair in pairs {
-            let value = pair.value;
-            match pair.key.as_deref() {
-                Some("location") => location = value,
-                Some("offset") => offset = value.as_deref().and_then(|v| v.parse().ok()),
-                Some("length") => length = value.as_deref().and_then(|v| v.parse().ok()),
-                _ => {}
+            if let (Some(k), Some(v)) = (pair.key.as_deref(), pair.value) {
+                match k {
+                    "location" => location = Some(v),
+                    "offset" => offset = Some(v.parse()?),
+                    "length" => length = Some(v.parse()?),
+                    _ => {}
+                }
             }
         }
 

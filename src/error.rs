@@ -58,3 +58,9 @@ impl From<std::str::Utf8Error> for Error {
         Error::Utf8(err)
     }
 }
+
+impl From<std::num::ParseIntError> for Error {
+    fn from(err: std::num::ParseIntError) -> Self {
+        Error::InvalidModel(format!("Invalid integer in model metadata: {}", err))
+    }
+}
