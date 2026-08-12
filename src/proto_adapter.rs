@@ -213,8 +213,7 @@ pub(crate) fn parse_attribute_proto(
             let tensor = attr
                 .t
                 .ok_or_else(|| Error::MissingField("tensor attribute data".to_string()))?;
-            // Note: Tensor attributes don't have external data loader since they're inline
-            let onnx_tensor = tensor_from_proto(tensor, &None)?;
+            let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
             Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
         }
         5 => {
