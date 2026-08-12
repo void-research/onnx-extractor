@@ -45,10 +45,7 @@ impl Model {
     }
 
     /// Load ONNX model from owned byte vector with optional model directory for external data
-    fn load_from_bytes_with_dir(
-        data: Bytes,
-        model_dir: Option<PathBuf>,
-    ) -> Result<Self, Error> {
+    fn load_from_bytes_with_dir(data: Bytes, model_dir: Option<PathBuf>) -> Result<Self, Error> {
         let model = ModelProto::decode(data)?;
         let graph = model
             .graph
