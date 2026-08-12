@@ -54,7 +54,7 @@ pub(crate) use onnx_generated::*;
 pub mod attribute_value;
 pub mod data_type;
 pub mod error;
-pub mod external_data;
+mod external_data;
 pub mod graph;
 pub mod model;
 pub mod operation;
