@@ -36,16 +36,16 @@ impl Model {
             .map(Path::to_path_buf)
             .or_else(|| std::env::current_dir().ok());
 
-        Self::load_from_bytes_with_dir_bytes(bytes, model_dir)
+        Self::load_from_bytes_with_dir(bytes, model_dir)
     }
 
     /// Load ONNX model from byte buffer (e.g., `Vec<u8>`, `Bytes`, `&'static [u8]`)
     pub fn load_from_bytes(data: impl Into<Bytes>) -> Result<Self, Error> {
-        Self::load_from_bytes_with_dir_bytes(data.into(), None)
+        Self::load_from_bytes_with_dir(data.into(), None)
     }
 
     /// Load ONNX model from owned byte vector with optional model directory for external data
-    fn load_from_bytes_with_dir_bytes(
+    fn load_from_bytes_with_dir(
         data: Bytes,
         model_dir: Option<PathBuf>,
     ) -> Result<Self, Error> {
