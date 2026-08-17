@@ -10,14 +10,14 @@ use std::sync::Arc;
 /// Create Tensor from ONNX TensorProto
 pub(crate) fn tensor_from_proto(
     tensor: TensorProto,
-    external_data_loader: &Option<Arc<ExternalDataLoader>>,
+    external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<Tensor, Error> {
     let data_type = DataType::from_onnx_type(tensor.data_type.unwrap_or(0));
 
     // Determine data location (internal vs external vs mmap-backed raw)
     let data = if !tensor.external_data.is_empty() {
         // Tensor has external data
-        let loader = external_data_loader.as_ref().ok_or_else(|| {
+        let loader = external_data_loader.ok_or_else(|| {
             Error::InvalidModel(
                 "Tensor has external data but no external data loader was provided".to_string(),
             )
@@ -101,7 +101,7 @@ fn tensor_from_tensor_type(
 /// Create Graph from ONNX GraphProto
 pub(crate) fn graph_from_proto(
     graph: GraphProto,
-    external_data_loader: Option<Arc<ExternalDataLoader>>,
+    external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<Graph, Error> {
     let mut tensors = HashMap::with_capacity(
         graph.initializer.len() + graph.value_info.len() + graph.input.len() + graph.output.len(),
@@ -109,7 +109,7 @@ pub(crate) fn graph_from_proto(
 
     // Parse initialiser tensors (weights/constants)
     for tensor in graph.initializer {
-        let onnx_tensor = tensor_from_proto(tensor, &external_data_loader)?;
+        let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
         tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
     }
 
@@ -160,7 +160,7 @@ pub(crate) fn graph_from_proto(
     let operations = graph
         .node
         .into_iter()
-        .map(|node| operation_from_node_proto(node, &external_data_loader))
+        .map(|node| operation_from_node_proto(node, external_data_loader))
         .collect::<Result<Vec<_>, Error>>()?;
 
     Ok(Graph::new(
@@ -175,7 +175,7 @@ pub(crate) fn graph_from_proto(
 /// Create Operation from ONNX NodeProto
 pub(crate) fn operation_from_node_proto(
     node: NodeProto,
-    external_data_loader: &Option<Arc<ExternalDataLoader>>,
+    external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<Operation, Error> {
     let attributes: HashMap<String, AttributeValue> = node
         .attribute
@@ -199,7 +199,7 @@ pub(crate) fn operation_from_node_proto(
 /// the protobuf structure.
 pub(crate) fn parse_attribute_proto(
     attr: AttributeProto,
-    external_data_loader: &Option<Arc<ExternalDataLoader>>,
+    external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<(String, AttributeValue), Error> {
     let value = match attr.r#type.unwrap_or(0) {
         1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
@@ -216,7 +216,7 @@ pub(crate) fn parse_attribute_proto(
             let graph = attr
                 .g
                 .ok_or_else(|| Error::MissingField("graph attribute data".to_string()))?;
-            let onnx_graph = graph_from_proto(graph, external_data_loader.clone())?;
+            let onnx_graph = graph_from_proto(graph, external_data_loader)?;
             Ok(AttributeValue::Graph(Box::new(onnx_graph)))
         }
         6 => Ok(AttributeValue::Floats(attr.floats)),
@@ -231,10 +231,10 @@ pub(crate) fn parse_attribute_proto(
         10 => Ok(AttributeValue::Graphs(
             attr.graphs
                 .into_iter()
-                .map(|graph| graph_from_proto(graph, external_data_loader.clone()))
+                .map(|graph| graph_from_proto(graph, external_data_loader))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
-        n => Err(Error::Unsupported(format!("attribute type: {}", n))),
+        n => Err(Error::Unsupported(format!("attribute type: {n}"))),
     }?;
 
     Ok((attr.name.unwrap_or_default(), value))

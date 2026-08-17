@@ -68,7 +68,7 @@ impl Model {
             .collect();
 
         Ok(Model {
-            graph: proto_adapter::graph_from_proto(graph, external_data_loader)?,
+            graph: proto_adapter::graph_from_proto(graph, external_data_loader.as_ref())?,
             ir_version: model.ir_version.unwrap_or(0),
             producer_name: model.producer_name.unwrap_or_default(),
             producer_version: model.producer_version.unwrap_or_default(),
