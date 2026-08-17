@@ -20,7 +20,7 @@
 //! - Numeric returns owned vectors (`Vec<T>`)
 //! - Strings returns owned vectors of shared elements (`Vec<Bytes>`)
 //!
-//! Endianness: Tensor data follows the raw byte representation as defined in the ONNX specification.
+//! Endianness: Raw tensor data uses little-endian byte order as defined in the ONNX specification. Typed fields use native host representation.
 //!
 //! ## Quick Start
 //!

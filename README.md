@@ -201,7 +201,7 @@ This crate generates Rust types from the ONNX protobuf at build time using `pros
 
 ## Platform Notes
 
-- Endianness: Tensor data follows the raw byte representation as defined in the ONNX specification.
+- Endianness: Raw tensor data uses little-endian byte order as defined in the ONNX specification. Typed fields use native host representation.
 
 ## License
 
