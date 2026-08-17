@@ -1,7 +1,7 @@
 use crate::AttributeValue;
 use std::collections::HashMap;
 
-/// Information about an ONNX operation/node
+/// An ONNX operation/node in the computational graph
 #[derive(Debug)]
 pub struct Operation {
     name: String,

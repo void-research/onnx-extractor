@@ -1,6 +1,6 @@
 # onnx-extractor
 
-A tiny and lightweight ONNX model parser for extracting tensor shapes, operations, and raw data with mmap and external data loading support. Every function in this crate provides zero-copy access to the underlying tensor data.
+A minimal ONNX model loader designed for extracting weights, tensor data, operations, and graph structure. Built for zero-copy access with memory mapping (`mmap`) and lazy external data support.
 
 ## Model Loading
 
@@ -20,7 +20,7 @@ let model = Model::load_from_bytes(bytes)?;
 Global metadata is accessed from the `Model` container, while graph structure and state is accessed via `model.graph()`.
 
 ```rust
-// Basic info
+// Model summary
 println!("{}", model);
 
 let graph = model.graph();
@@ -51,7 +51,7 @@ let topo_order = graph.topological_order()?; // Result<Vec<&Operation>, Error>
 ```rust
 let tensor = model.graph().tensors().get("weight").unwrap();
 
-// Shape and type info
+// Name, shape and data type
 println!("Name: {}", tensor.name());
 println!("Shape: {:?}", tensor.shape());
 println!("Data type: {:?}", tensor.data_type());

@@ -160,7 +160,7 @@ impl TensorData {
     }
 }
 
-/// Information about an ONNX tensor
+/// An ONNX tensor with a name, shape, data type, and optional underlying data
 #[derive(Debug)]
 pub struct Tensor {
     name: String,

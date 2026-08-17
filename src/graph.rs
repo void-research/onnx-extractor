@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{AttributeValue, Error, Operation, Tensor};
 
-/// Represents a computational graph in an ONNX model (either the root graph or a nested subgraph)
+/// Represents a computational graph in an ONNX model
 #[derive(Debug)]
 pub struct Graph {
     name: String,
@@ -177,7 +177,6 @@ impl Graph {
         }
     }
 
-    /// Format graph information recursively
     pub(crate) fn format_recursive(
         &self,
         f: &mut std::fmt::Formatter<'_>,

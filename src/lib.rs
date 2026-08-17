@@ -1,11 +1,12 @@
 //! # onnx-extractor
 //!
-//! A lightweight ONNX model parser for extracting tensor shapes, operations, and data.
+//! A minimal ONNX model loader for extracting weights, tensors, operations, and graph structure.
 //!
-//! This crate provides a simple interface to parse ONNX models and extract:
-//! - Tensor information (shapes, data types, raw data)
-//! - Operation details (inputs, outputs, attributes)
-//! - Model structure (inputs, outputs, graph topology)
+//! This crate provides a simple interface to load ONNX models and extract:
+//! - Tensor weights & raw data (zero-copy slices, owned buffers, external files)
+//! - Tensor shapes, dimensions, and data types
+//! - Operations and attributes (nodes, inputs/outputs, subgraphs)
+//! - Graph topology and execution order
 //!
 //! ## Zero-Copy Design
 //!
@@ -29,9 +30,9 @@
 //! let model = Model::load_from_file("model.onnx")?;
 //! println!("{}", model);
 //!
-//! // Access tensor information
-//! if let Some(tensor) = model.graph().tensors().get("input") {
-//!     println!("Input shape: {:?}", tensor.shape());
+//! // Access tensor shape and data
+//! if let Some(tensor) = model.graph().tensors().get("weight_1") {
+//!     println!("Weight shape: {:?}", tensor.shape());
 //!     let data = tensor.data()?;
 //!     if let Ok(bytes) = data.as_slice() {
 //!         println!("Data size: {} bytes", bytes.len());
