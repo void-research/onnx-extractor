@@ -2,7 +2,6 @@ pub use crate::tensor_proto::DataType;
 
 /// ONNX tensor data types
 impl DataType {
-    /// Create DataType from ONNX type integer
     pub(crate) fn from_onnx_type(data_type: i32) -> Self {
         Self::try_from(data_type).unwrap_or(Self::Undefined)
     }
