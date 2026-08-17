@@ -2,9 +2,9 @@ use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
     AttributeProto, AttributeValue, DataType, Error, Graph, GraphProto, NodeProto, Operation,
-    Tensor, TensorProto, tensor_shape_proto::dimension::Value, type_proto,
+    Tensor, TensorProto, ValueInfoProto, tensor_shape_proto::dimension::Value, type_proto,
 };
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 /// Create Tensor from ONNX TensorProto
@@ -65,11 +65,11 @@ pub(crate) fn tensor_from_proto(
     ))
 }
 
-/// Create Tensor from TypeProto.Tensor (shape and elem_type only, no data)
-fn tensor_from_tensor_type(
-    name: String,
-    tensor_type: &type_proto::Tensor,
-) -> Result<Tensor, Error> {
+fn tensor_from_value_info(vi: ValueInfoProto) -> Result<Option<Tensor>, Error> {
+    let Some(type_proto::Value::TensorType(tensor_type)) = vi.r#type.and_then(|t| t.value) else {
+        return Ok(None);
+    };
+
     let shape = tensor_type
         .shape
         .iter()
@@ -90,12 +90,12 @@ fn tensor_from_tensor_type(
         None => return Err(Error::MissingField("tensor elem_type".to_string())),
     };
 
-    Ok(Tensor::new(
-        name,
+    Ok(Some(Tensor::new(
+        vi.name.unwrap_or_default(),
         shape,
         data_type,
         TensorDataLocation::None,
-    ))
+    )))
 }
 
 /// Create Graph from ONNX GraphProto
@@ -116,43 +116,34 @@ pub(crate) fn graph_from_proto(
     // Parse input tensor info and extract input names
     let mut inputs = Vec::with_capacity(graph.input.len());
     for input in graph.input {
-        let name = input.name.unwrap_or_default();
+        let name = input.name.as_deref().unwrap_or_default();
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
-        if let Entry::Vacant(e) = tensors.entry(name.clone()) {
-            inputs.push(name);
-            if let Some(type_proto::Value::TensorType(tensor_type)) =
-                input.r#type.and_then(|t| t.value)
-            {
-                let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
-                e.insert(onnx_tensor);
+        if !tensors.contains_key(name) {
+            inputs.push(name.to_string());
+            if let Some(tensor) = tensor_from_value_info(input)? {
+                tensors.insert(tensor.name().to_string(), tensor);
             }
         }
     }
 
     // Parse value_info for intermediate tensor shapes and types
     for value_info in graph.value_info {
-        let name = value_info.name.unwrap_or_default();
-        if let Entry::Vacant(e) = tensors.entry(name)
-            && let Some(type_proto::Value::TensorType(tensor_type)) =
-                value_info.r#type.and_then(|t| t.value)
+        if !tensors.contains_key(value_info.name.as_deref().unwrap_or_default())
+            && let Some(tensor) = tensor_from_value_info(value_info)?
         {
-            let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
-            e.insert(onnx_tensor);
+            tensors.insert(tensor.name().to_string(), tensor);
         }
     }
 
     // Parse output tensor info and extract output names
     let mut outputs = Vec::with_capacity(graph.output.len());
     for output in graph.output {
-        let name = output.name.unwrap_or_default();
-        outputs.push(name.clone());
-
-        if let Entry::Vacant(e) = tensors.entry(name)
-            && let Some(type_proto::Value::TensorType(tensor_type)) =
-                output.r#type.and_then(|t| t.value)
+        let name = output.name.as_deref().unwrap_or_default();
+        outputs.push(name.to_string());
+        if !tensors.contains_key(name)
+            && let Some(tensor) = tensor_from_value_info(output)?
         {
-            let onnx_tensor = tensor_from_tensor_type(e.key().clone(), &tensor_type)?;
-            e.insert(onnx_tensor);
+            tensors.insert(tensor.name().to_string(), tensor);
         }
     }
 
