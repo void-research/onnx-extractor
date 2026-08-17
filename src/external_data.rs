@@ -2,7 +2,7 @@ use memmap2::Mmap;
 use prost::bytes::Bytes;
 use std::collections::HashMap;
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 
 use crate::{Error, StringStringEntryProto};
@@ -73,32 +73,29 @@ impl ExternalDataLoader {
         {
             let cache = self.cache.read().unwrap();
             if let Some(cached_data) = cache.get(&info.location) {
-                return self.slice_data(cached_data, info);
+                return Self::slice_data(cached_data, info);
             }
         }
 
         let mut cache = self.cache.write().unwrap();
 
         if let Some(cached_data) = cache.get(&info.location) {
-            return self.slice_data(cached_data, info);
+            return Self::slice_data(cached_data, info);
         }
 
         let file_path = self.model_dir.join(&info.location);
-        let file_data = self.load_file(&file_path)?;
-        let slice = self.slice_data(&file_data, info)?;
-
-        cache.insert(info.location.clone(), file_data);
-
-        Ok(slice)
-    }
-
-    fn load_file(&self, path: &Path) -> Result<Bytes, Error> {
-        let file = File::open(path)?;
+        let file = File::open(file_path)?;
         let mmap = unsafe { Mmap::map(&file)? };
-        Ok(Bytes::from_owner(mmap))
+
+        let full_file_data = Bytes::from_owner(mmap);
+        let data_slice = Self::slice_data(&full_file_data, info)?;
+
+        cache.insert(info.location.clone(), full_file_data);
+
+        Ok(data_slice)
     }
 
-    fn slice_data(&self, data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
+    fn slice_data(data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         let start = info.offset.unwrap_or(0) as usize;
         let end = info
             .length
