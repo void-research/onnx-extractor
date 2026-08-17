@@ -126,15 +126,6 @@ pub(crate) fn graph_from_proto(
         }
     }
 
-    // Parse value_info for intermediate tensor shapes and types
-    for value_info in graph.value_info {
-        if !tensors.contains_key(value_info.name.as_deref().unwrap_or_default())
-            && let Some(tensor) = tensor_from_value_info(value_info)?
-        {
-            tensors.insert(tensor.name().to_string(), tensor);
-        }
-    }
-
     // Parse output tensor info and extract output names
     let mut outputs = Vec::with_capacity(graph.output.len());
     for output in graph.output {
@@ -142,6 +133,15 @@ pub(crate) fn graph_from_proto(
         outputs.push(name.to_string());
         if !tensors.contains_key(name)
             && let Some(tensor) = tensor_from_value_info(output)?
+        {
+            tensors.insert(tensor.name().to_string(), tensor);
+        }
+    }
+
+    // Parse value_info for intermediate tensor shapes and types
+    for value_info in graph.value_info {
+        if !tensors.contains_key(value_info.name.as_deref().unwrap_or_default())
+            && let Some(tensor) = tensor_from_value_info(value_info)?
         {
             tensors.insert(tensor.name().to_string(), tensor);
         }
