@@ -110,13 +110,20 @@ pub(crate) fn graph_from_proto(
     // Parse initialiser tensors (weights/constants)
     for tensor in graph.initializer {
         let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
+        if onnx_tensor.name().is_empty() {
+            return Err(Error::MissingField("initialiser tensor name".to_string()));
+        }
         tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
     }
 
     // Parse input tensor info and extract input names
     let mut inputs = Vec::with_capacity(graph.input.len());
     for input in graph.input {
-        let name = input.name.as_deref().unwrap_or_default();
+        let name = input
+            .name
+            .as_deref()
+            .filter(|n| !n.is_empty())
+            .ok_or_else(|| Error::MissingField("graph input name".to_string()))?;
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
         if !tensors.contains_key(name) {
             inputs.push(name.to_string());
@@ -129,7 +136,11 @@ pub(crate) fn graph_from_proto(
     // Parse output tensor info and extract output names
     let mut outputs = Vec::with_capacity(graph.output.len());
     for output in graph.output {
-        let name = output.name.as_deref().unwrap_or_default();
+        let name = output
+            .name
+            .as_deref()
+            .filter(|n| !n.is_empty())
+            .ok_or_else(|| Error::MissingField("graph output name".to_string()))?;
         outputs.push(name.to_string());
         if !tensors.contains_key(name)
             && let Some(tensor) = tensor_from_value_info(output)?
@@ -140,7 +151,9 @@ pub(crate) fn graph_from_proto(
 
     // Parse value_info for intermediate tensor shapes and types
     for value_info in graph.value_info {
-        if !tensors.contains_key(value_info.name.as_deref().unwrap_or_default())
+        let name = value_info.name.as_deref().unwrap_or_default();
+        if !name.is_empty()
+            && !tensors.contains_key(name)
             && let Some(tensor) = tensor_from_value_info(value_info)?
         {
             tensors.insert(tensor.name().to_string(), tensor);
