@@ -1,5 +1,3 @@
-use std::fmt;
-
 /// Custom error type for onnx-extractor
 #[derive(Debug)]
 pub enum Error {
@@ -17,15 +15,15 @@ pub enum Error {
     Unsupported(String),
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Error::Io(e) => write!(f, "I/O error: {}", e),
-            Error::Decode(e) => write!(f, "Protobuf decode error: {}", e),
-            Error::Utf8(e) => write!(f, "UTF-8 conversion error: {}", e),
-            Error::InvalidModel(msg) => write!(f, "Invalid model: {}", msg),
-            Error::MissingField(field) => write!(f, "Missing required field: {}", field),
-            Error::Unsupported(feature) => write!(f, "Unsupported feature: {}", feature),
+            Error::Io(e) => write!(f, "I/O error: {e}"),
+            Error::Decode(e) => write!(f, "Protobuf decode error: {e}"),
+            Error::Utf8(e) => write!(f, "UTF-8 conversion error: {e}"),
+            Error::InvalidModel(msg) => write!(f, "Invalid model: {msg}"),
+            Error::MissingField(field) => write!(f, "Missing required field: {field}"),
+            Error::Unsupported(feature) => write!(f, "Unsupported feature: {feature}"),
         }
     }
 }
@@ -61,6 +59,6 @@ impl From<std::str::Utf8Error> for Error {
 
 impl From<std::num::ParseIntError> for Error {
     fn from(err: std::num::ParseIntError) -> Self {
-        Error::InvalidModel(format!("Invalid integer in model metadata: {}", err))
+        Error::InvalidModel(format!("Invalid integer in model metadata: {err}"))
     }
 }
