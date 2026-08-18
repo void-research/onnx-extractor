@@ -35,9 +35,7 @@ impl ExternalDataInfo {
             }
         }
 
-        let location = location.ok_or_else(|| {
-            Error::InvalidModel("External data missing required 'location' field".to_string())
-        })?;
+        let location = location.ok_or(Error::MissingField("external data location"))?;
 
         Ok(ExternalDataInfo {
             location,
@@ -121,9 +119,10 @@ impl ExternalDataLoader {
 
 impl std::fmt::Debug for ExternalDataLoader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let cached_count = self.cache.read().map(|c| c.len()).unwrap_or_default();
         f.debug_struct("ExternalDataLoader")
             .field("model_dir", &self.model_dir)
-            .field("cached_files", &self.cache.read().unwrap().len())
+            .field("cached_files", &cached_count)
             .finish()
     }
 }

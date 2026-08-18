@@ -47,9 +47,7 @@ impl Model {
     /// Load ONNX model from owned byte vector with optional model directory for external data
     fn load_from_bytes_with_dir(data: Bytes, model_dir: Option<PathBuf>) -> Result<Self, Error> {
         let model = ModelProto::decode(data)?;
-        let graph = model
-            .graph
-            .ok_or_else(|| Error::InvalidModel("No graph found in model".to_string()))?;
+        let graph = model.graph.ok_or(Error::MissingField("model graph"))?;
 
         // Create external data loader if model directory is available
         // Tensors keep the loader alive via Arc as long as they need it
@@ -64,8 +62,11 @@ impl Model {
         let opsets: HashMap<String, i64> = model
             .opset_import
             .into_iter()
-            .map(|opset| (opset.domain.unwrap_or_default(), opset.version.unwrap_or(0)))
-            .collect();
+            .map(|opset| {
+                let version = opset.version.ok_or(Error::MissingField("opset version"))?;
+                Ok((opset.domain.unwrap_or_default(), version))
+            })
+            .collect::<Result<_, Error>>()?;
 
         let ir_version = model
             .ir_version

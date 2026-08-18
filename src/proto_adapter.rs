@@ -80,15 +80,7 @@ fn tensor_from_value_info(vi: ValueInfoProto) -> Result<Option<Tensor>, Error> {
         })
         .collect();
 
-    let data_type = match tensor_type.elem_type {
-        Some(0) => {
-            return Err(Error::InvalidModel(
-                "tensor elem_type must not be UNDEFINED (0)".to_string(),
-            ));
-        }
-        Some(t) => DataType::from_onnx_type(t),
-        None => return Err(Error::MissingField("tensor elem_type")),
-    };
+    let data_type = DataType::from_onnx_type(tensor_type.elem_type.unwrap_or(0));
 
     Ok(Some(Tensor::new(
         vi.name.unwrap_or_default(),
@@ -209,10 +201,21 @@ pub(crate) fn parse_attribute_proto(
         .filter(|n| !n.is_empty())
         .ok_or(Error::MissingField("attribute name"))?;
 
-    let value = match attr.r#type.unwrap_or(0) {
-        1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
-        2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
-        3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
+    let attr_type = attr.r#type.ok_or(Error::MissingField("attribute type"))?;
+
+    let value = match attr_type {
+        1 => {
+            let f = attr.f.ok_or(Error::MissingField("float attribute data"))?;
+            Ok(AttributeValue::Float(f))
+        }
+        2 => {
+            let i = attr.i.ok_or(Error::MissingField("int attribute data"))?;
+            Ok(AttributeValue::Int(i))
+        }
+        3 => {
+            let s = attr.s.ok_or(Error::MissingField("string attribute data"))?;
+            Ok(AttributeValue::String(s))
+        }
         4 => {
             let tensor = attr.t.ok_or(Error::MissingField("tensor attribute data"))?;
             let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
