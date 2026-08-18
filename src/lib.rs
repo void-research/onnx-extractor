@@ -43,8 +43,7 @@
 
 // include generated protobuf code inside a small module so we can silence
 // lints and doc warnings originating from the generated file only.
-#[allow(clippy::all)]
-#[allow(rustdoc::all)]
+#[allow(clippy::all, clippy::pedantic, rustdoc::all)]
 mod onnx_generated {
     include!(concat!(env!("OUT_DIR"), "/onnx.rs"));
 }
