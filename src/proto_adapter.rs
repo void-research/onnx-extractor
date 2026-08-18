@@ -4,7 +4,7 @@ use crate::{
     AttributeProto, AttributeValue, DataType, Error, Graph, GraphProto, NodeProto, Operation,
     Tensor, TensorProto, TypeProto, tensor_shape_proto::dimension::Value, type_proto,
 };
-use std::collections::HashMap;
+use std::collections::hash_map::{Entry, HashMap};
 use std::sync::Arc;
 
 /// Create Tensor from ONNX TensorProto
@@ -111,10 +111,10 @@ pub(crate) fn graph_from_proto(
             .filter(|n| !n.is_empty())
             .ok_or(Error::MissingField("graph input name"))?;
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
-        if !tensors.contains_key(&name) {
-            inputs.push(name.clone());
-            if let Some(tensor) = tensor_from_value_info(Some(name.clone()), input.r#type)? {
-                tensors.insert(name, tensor);
+        if let Entry::Vacant(entry) = tensors.entry(name) {
+            inputs.push(entry.key().clone());
+            if let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), input.r#type)? {
+                entry.insert(tensor);
             }
         }
     }
@@ -127,20 +127,21 @@ pub(crate) fn graph_from_proto(
             .filter(|n| !n.is_empty())
             .ok_or(Error::MissingField("graph output name"))?;
         outputs.push(name.clone());
-        if !tensors.contains_key(&name)
-            && let Some(tensor) = tensor_from_value_info(Some(name.clone()), output.r#type)?
+        if let Entry::Vacant(entry) = tensors.entry(name)
+            && let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), output.r#type)?
         {
-            tensors.insert(name, tensor);
+            entry.insert(tensor);
         }
     }
 
     // Parse value_info for intermediate tensor shapes and types
     for value_info in graph.value_info {
         if let Some(name) = value_info.name.filter(|n| !n.is_empty())
-            && !tensors.contains_key(&name)
-            && let Some(tensor) = tensor_from_value_info(Some(name.clone()), value_info.r#type)?
+            && let Entry::Vacant(entry) = tensors.entry(name)
+            && let Some(tensor) =
+                tensor_from_value_info(Some(entry.key().clone()), value_info.r#type)?
         {
-            tensors.insert(name, tensor);
+            entry.insert(tensor);
         }
     }
 
