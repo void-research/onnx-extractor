@@ -7,6 +7,8 @@ pub enum Error {
     Decode(prost::DecodeError),
     /// UTF-8 conversion error
     Utf8(std::str::Utf8Error),
+    /// Lock poisoned error
+    ExternalDataLockPoisoned,
     /// Model structure error
     InvalidModel(String),
     /// Missing required field
@@ -21,6 +23,7 @@ impl std::fmt::Display for Error {
             Error::Io(e) => write!(f, "I/O error: {e}"),
             Error::Decode(e) => write!(f, "Protobuf decode error: {e}"),
             Error::Utf8(e) => write!(f, "UTF-8 conversion error: {e}"),
+            Error::ExternalDataLockPoisoned => write!(f, "Lock poisoned"),
             Error::InvalidModel(msg) => write!(f, "Invalid model: {msg}"),
             Error::MissingField(field) => write!(f, "Missing required field: {field}"),
             Error::Unsupported(feature) => write!(f, "Unsupported feature: {feature}"),
@@ -54,6 +57,12 @@ impl From<prost::DecodeError> for Error {
 impl From<std::str::Utf8Error> for Error {
     fn from(err: std::str::Utf8Error) -> Self {
         Error::Utf8(err)
+    }
+}
+
+impl<T> From<std::sync::PoisonError<T>> for Error {
+    fn from(_: std::sync::PoisonError<T>) -> Self {
+        Error::ExternalDataLockPoisoned
     }
 }
 

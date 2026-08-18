@@ -71,13 +71,13 @@ impl ExternalDataLoader {
     // loading the same file into memory if both race past read.
     fn load_data(&self, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         {
-            let cache = self.cache.read().unwrap();
+            let cache = self.cache.read()?;
             if let Some(cached_data) = cache.get(&info.location) {
                 return Self::slice_data(cached_data, info);
             }
         }
 
-        let mut cache = self.cache.write().unwrap();
+        let mut cache = self.cache.write()?;
 
         if let Some(cached_data) = cache.get(&info.location) {
             return Self::slice_data(cached_data, info);
