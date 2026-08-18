@@ -61,11 +61,13 @@ let data_ref = tensor.data()?; // Returns Result<TensorDataRef<'_>, Error>
 println!("Data size: {} bytes", data_ref.len());
 
 // Get data as contiguous byte slice
-// Works for Raw and Numeric variants; returns Error for Strings as they are not contiguous in memory
-let bytes: &[u8] = data_ref.as_slice()?;
+// Returns Some(&[u8]) for Raw and Numeric variants; returns None for Strings as they are not contiguous in memory
+if let Some(bytes) = data_ref.as_slice() {
+    println!("Byte slice length: {}", bytes.len());
+}
 
 // Access string elements for String tensors
-if let Ok(strings) = data_ref.strings() {
+if let Some(strings) = data_ref.strings() {
     for s in strings {
         println!("String element: {:?}", s);
     }

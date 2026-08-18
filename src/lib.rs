@@ -34,7 +34,7 @@
 //! if let Some(tensor) = model.graph().tensors().get("weight_1") {
 //!     println!("Weight shape: {:?}", tensor.shape());
 //!     let data = tensor.data()?;
-//!     if let Ok(bytes) = data.as_slice() {
+//!     if let Some(bytes) = data.as_slice() {
 //!         println!("Data size: {} bytes", bytes.len());
 //!     }
 //! }

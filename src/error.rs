@@ -13,8 +13,8 @@ pub enum Error {
     InvalidModel(String),
     /// Missing required field
     MissingField(&'static str),
-    /// Unsupported feature
-    Unsupported(String),
+    /// Unsupported attribute type
+    UnsupportedAttributeType(i32),
 }
 
 impl std::fmt::Display for Error {
@@ -26,7 +26,7 @@ impl std::fmt::Display for Error {
             Error::ExternalDataLockPoisoned => write!(f, "Lock poisoned"),
             Error::InvalidModel(msg) => write!(f, "Invalid model: {msg}"),
             Error::MissingField(field) => write!(f, "Missing required field: {field}"),
-            Error::Unsupported(feature) => write!(f, "Unsupported feature: {feature}"),
+            Error::UnsupportedAttributeType(t) => write!(f, "Unsupported attribute type: {t}"),
         }
     }
 }

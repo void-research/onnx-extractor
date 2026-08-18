@@ -64,26 +64,24 @@ impl<'a> TensorDataRef<'a> {
     /// Get data as contiguous byte slice
     ///
     /// Raw and Numeric variants borrow directly.
-    /// Returns an error for the Strings variant as it would require concatenation and allocation.
-    pub fn as_slice(&self) -> Result<&[u8], Error> {
+    /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
+    pub fn as_slice(&self) -> Option<&[u8]> {
         match self {
-            TensorDataRef::Raw(b) => Ok(b),
-            TensorDataRef::F32(v) => Ok(slice_as_u8(v)),
-            TensorDataRef::F64(v) => Ok(slice_as_u8(v)),
-            TensorDataRef::I32(v) => Ok(slice_as_u8(v)),
-            TensorDataRef::I64(v) => Ok(slice_as_u8(v)),
-            TensorDataRef::U64(v) => Ok(slice_as_u8(v)),
-            TensorDataRef::Strings(_) => Err(Error::Unsupported(
-                "String tensors cannot be accessed as a contiguous byte slice".to_string(),
-            )),
+            TensorDataRef::Raw(b) => Some(b),
+            TensorDataRef::F32(v) => Some(slice_as_u8(v)),
+            TensorDataRef::F64(v) => Some(slice_as_u8(v)),
+            TensorDataRef::I32(v) => Some(slice_as_u8(v)),
+            TensorDataRef::I64(v) => Some(slice_as_u8(v)),
+            TensorDataRef::U64(v) => Some(slice_as_u8(v)),
+            TensorDataRef::Strings(_) => None,
         }
     }
 
-    /// Access the string elements if the variant is Strings. Returns an error otherwise.
-    pub fn strings(&self) -> Result<&'a [Bytes], Error> {
+    /// Access the string elements if the variant is `Strings`. Returns `None` otherwise.
+    pub fn strings(&self) -> Option<&'a [Bytes]> {
         match self {
-            TensorDataRef::Strings(v) => Ok(v),
-            _ => Err(Error::MissingField("tensor strings data")),
+            TensorDataRef::Strings(v) => Some(v),
+            _ => None,
         }
     }
 }
@@ -136,26 +134,24 @@ impl TensorData {
     /// Get data as contiguous byte slice
     ///
     /// Raw and Numeric variants borrow directly.
-    /// Returns an error for the Strings variant as it would require concatenation and allocation.
-    pub fn as_slice(&self) -> Result<&[u8], Error> {
+    /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
+    pub fn as_slice(&self) -> Option<&[u8]> {
         match self {
-            TensorData::Raw(b) => Ok(b),
-            TensorData::F32(v) => Ok(slice_as_u8(v)),
-            TensorData::F64(v) => Ok(slice_as_u8(v)),
-            TensorData::I32(v) => Ok(slice_as_u8(v)),
-            TensorData::I64(v) => Ok(slice_as_u8(v)),
-            TensorData::U64(v) => Ok(slice_as_u8(v)),
-            TensorData::Strings(_) => Err(Error::Unsupported(
-                "String tensors cannot be accessed as a contiguous byte slice".to_string(),
-            )),
+            TensorData::Raw(b) => Some(b),
+            TensorData::F32(v) => Some(slice_as_u8(v)),
+            TensorData::F64(v) => Some(slice_as_u8(v)),
+            TensorData::I32(v) => Some(slice_as_u8(v)),
+            TensorData::I64(v) => Some(slice_as_u8(v)),
+            TensorData::U64(v) => Some(slice_as_u8(v)),
+            TensorData::Strings(_) => None,
         }
     }
 
-    /// Access the string elements if the variant is Strings. Returns an error otherwise.
-    pub fn strings(&self) -> Result<&[Bytes], Error> {
+    /// Access the string elements if the variant is `Strings`. Returns `None` otherwise.
+    pub fn strings(&self) -> Option<&[Bytes]> {
         match self {
-            TensorData::Strings(v) => Ok(v),
-            _ => Err(Error::MissingField("tensor strings data")),
+            TensorData::Strings(v) => Some(v),
+            _ => None,
         }
     }
 }

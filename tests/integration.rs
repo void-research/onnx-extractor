@@ -137,6 +137,10 @@ fn test_get_raw_data() {
 
     let data_ref = first.data().expect("data() should return tensor data");
     assert!(!data_ref.is_empty(), "tensor data should be non-empty");
+    assert!(
+        data_ref.as_slice().is_some(),
+        "numeric weight tensor should provide a contiguous byte slice"
+    );
 }
 
 #[test]

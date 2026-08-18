@@ -230,7 +230,7 @@ pub(crate) fn parse_attribute_proto(
                 .map(|graph| graph_from_proto(graph, external_data_loader))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         )),
-        n => Err(Error::Unsupported(format!("attribute type: {n}"))),
+        n => Err(Error::UnsupportedAttributeType(n)),
     }?;
 
     Ok((name, value))
