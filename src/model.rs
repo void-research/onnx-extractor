@@ -58,7 +58,7 @@ impl Model {
         let metadata: HashMap<String, String> = model
             .metadata_props
             .into_iter()
-            .filter_map(|prop| prop.key.map(|k| (k, prop.value.unwrap_or_default())))
+            .filter_map(|prop| prop.key.zip(prop.value))
             .collect();
 
         let opsets: HashMap<String, i64> = model
