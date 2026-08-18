@@ -159,7 +159,7 @@ impl TensorData {
 /// An ONNX tensor with a name, shape, data type, and optional underlying data
 #[derive(Debug)]
 pub struct Tensor {
-    name: String,
+    name: Option<String>,
     shape: Vec<i64>,
     data_type: DataType,
     data: TensorDataLocation,
@@ -167,7 +167,7 @@ pub struct Tensor {
 
 impl Tensor {
     pub(crate) fn new(
-        name: String,
+        name: Option<String>,
         shape: Vec<i64>,
         data_type: DataType,
         data: TensorDataLocation,
@@ -181,8 +181,8 @@ impl Tensor {
     }
 
     /// Tensor name
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     /// Tensor shape dimensions

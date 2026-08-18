@@ -2,7 +2,7 @@ use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
     AttributeProto, AttributeValue, DataType, Error, Graph, GraphProto, NodeProto, Operation,
-    Tensor, TensorProto, ValueInfoProto, tensor_shape_proto::dimension::Value, type_proto,
+    Tensor, TensorProto, TypeProto, tensor_shape_proto::dimension::Value, type_proto,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -53,16 +53,14 @@ pub(crate) fn tensor_from_proto(
         }
     };
 
-    Ok(Tensor::new(
-        tensor.name.unwrap_or_default(),
-        tensor.dims,
-        data_type,
-        data,
-    ))
+    Ok(Tensor::new(tensor.name, tensor.dims, data_type, data))
 }
 
-fn tensor_from_value_info(vi: ValueInfoProto) -> Result<Option<Tensor>, Error> {
-    let Some(type_proto::Value::TensorType(tensor_type)) = vi.r#type.and_then(|t| t.value) else {
+fn tensor_from_value_info(
+    name: Option<String>,
+    vi_type: Option<TypeProto>,
+) -> Result<Option<Tensor>, Error> {
+    let Some(type_proto::Value::TensorType(tensor_type)) = vi_type.and_then(|t| t.value) else {
         return Ok(None);
     };
 
@@ -79,7 +77,7 @@ fn tensor_from_value_info(vi: ValueInfoProto) -> Result<Option<Tensor>, Error> {
     let data_type = DataType::from_onnx_type(tensor_type.elem_type.unwrap_or(0));
 
     Ok(Some(Tensor::new(
-        vi.name.unwrap_or_default(),
+        name,
         shape,
         data_type,
         TensorDataLocation::None,
@@ -98,10 +96,11 @@ pub(crate) fn graph_from_proto(
     // Parse initialiser tensors (weights/constants)
     for tensor in graph.initializer {
         let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
-        if onnx_tensor.name().is_empty() {
-            return Err(Error::MissingField("initialiser tensor name"));
-        }
-        tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
+        let name = onnx_tensor
+            .name()
+            .filter(|n| !n.is_empty())
+            .ok_or(Error::MissingField("initialiser tensor name"))?;
+        tensors.insert(name.to_string(), onnx_tensor);
     }
 
     // Parse input tensor info and extract input names
@@ -109,14 +108,13 @@ pub(crate) fn graph_from_proto(
     for input in graph.input {
         let name = input
             .name
-            .as_deref()
             .filter(|n| !n.is_empty())
             .ok_or(Error::MissingField("graph input name"))?;
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
-        if !tensors.contains_key(name) {
-            inputs.push(name.to_string());
-            if let Some(tensor) = tensor_from_value_info(input)? {
-                tensors.insert(tensor.name().to_string(), tensor);
+        if !tensors.contains_key(&name) {
+            inputs.push(name.clone());
+            if let Some(tensor) = tensor_from_value_info(Some(name.clone()), input.r#type)? {
+                tensors.insert(name, tensor);
             }
         }
     }
@@ -126,25 +124,23 @@ pub(crate) fn graph_from_proto(
     for output in graph.output {
         let name = output
             .name
-            .as_deref()
             .filter(|n| !n.is_empty())
             .ok_or(Error::MissingField("graph output name"))?;
-        outputs.push(name.to_string());
-        if !tensors.contains_key(name)
-            && let Some(tensor) = tensor_from_value_info(output)?
+        outputs.push(name.clone());
+        if !tensors.contains_key(&name)
+            && let Some(tensor) = tensor_from_value_info(Some(name.clone()), output.r#type)?
         {
-            tensors.insert(tensor.name().to_string(), tensor);
+            tensors.insert(name, tensor);
         }
     }
 
     // Parse value_info for intermediate tensor shapes and types
     for value_info in graph.value_info {
-        let name = value_info.name.as_deref().unwrap_or_default();
-        if !name.is_empty()
-            && !tensors.contains_key(name)
-            && let Some(tensor) = tensor_from_value_info(value_info)?
+        if let Some(name) = value_info.name.filter(|n| !n.is_empty())
+            && !tensors.contains_key(&name)
+            && let Some(tensor) = tensor_from_value_info(Some(name.clone()), value_info.r#type)?
         {
-            tensors.insert(tensor.name().to_string(), tensor);
+            tensors.insert(name, tensor);
         }
     }
 

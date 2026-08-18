@@ -52,7 +52,7 @@ let topo_order = graph.topological_order()?; // Result<Vec<&Operation>, Error>
 let tensor = model.graph().tensors().get("weight").unwrap();
 
 // Name, shape and data type
-println!("Name: {}", tensor.name());
+println!("Name: {:?}", tensor.name());
 println!("Shape: {:?}", tensor.shape());
 println!("Data type: {:?}", tensor.data_type());
 
