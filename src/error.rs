@@ -7,14 +7,24 @@ pub enum Error {
     Decode(prost::DecodeError),
     /// UTF-8 conversion error
     Utf8(std::str::Utf8Error),
+    /// Integer parse error in model metadata
+    ParseInt(std::num::ParseIntError),
     /// Lock poisoned error
     ExternalDataLockPoisoned,
-    /// Model structure error
-    InvalidModel(String),
+    /// Invalid graph structure
+    InvalidGraph,
     /// Missing required field
     MissingField(&'static str),
+    /// Model contains external tensor data, but was loaded without a filesystem path
+    ExternalDataRequiresPath,
     /// Unsupported attribute type
     UnsupportedAttributeType(i32),
+    /// External data slice range exceeds file size
+    ExternalDataOutOfBounds {
+        start: usize,
+        end: usize,
+        file_size: usize,
+    },
 }
 
 impl std::fmt::Display for Error {
@@ -23,10 +33,26 @@ impl std::fmt::Display for Error {
             Error::Io(e) => write!(f, "I/O error: {e}"),
             Error::Decode(e) => write!(f, "Protobuf decode error: {e}"),
             Error::Utf8(e) => write!(f, "UTF-8 conversion error: {e}"),
+            Error::ParseInt(e) => write!(f, "Parse int error: {e}"),
             Error::ExternalDataLockPoisoned => write!(f, "Lock poisoned"),
-            Error::InvalidModel(msg) => write!(f, "Invalid model: {msg}"),
+            Error::InvalidGraph => write!(
+                f,
+                "Invalid graph: graph has cycles or unresolved dependencies"
+            ),
             Error::MissingField(field) => write!(f, "Missing required field: {field}"),
+            Error::ExternalDataRequiresPath => write!(
+                f,
+                "Model contains external tensor data, but was loaded without a filesystem path"
+            ),
             Error::UnsupportedAttributeType(t) => write!(f, "Unsupported attribute type: {t}"),
+            Error::ExternalDataOutOfBounds {
+                start,
+                end,
+                file_size,
+            } => write!(
+                f,
+                "External data range {start}..{end} exceeds file size {file_size}"
+            ),
         }
     }
 }
@@ -37,6 +63,7 @@ impl std::error::Error for Error {
             Error::Io(e) => Some(e),
             Error::Decode(e) => Some(e),
             Error::Utf8(e) => Some(e),
+            Error::ParseInt(e) => Some(e),
             _ => None,
         }
     }
@@ -68,6 +95,6 @@ impl<T> From<std::sync::PoisonError<T>> for Error {
 
 impl From<std::num::ParseIntError> for Error {
     fn from(err: std::num::ParseIntError) -> Self {
-        Error::InvalidModel(format!("Invalid integer in model metadata: {err}"))
+        Error::ParseInt(err)
     }
 }

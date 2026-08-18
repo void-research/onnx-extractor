@@ -17,11 +17,7 @@ pub(crate) fn tensor_from_proto(
     // Determine data location (internal vs external vs mmap-backed raw)
     let data = if !tensor.external_data.is_empty() {
         // Tensor has external data
-        let loader = external_data_loader.ok_or_else(|| {
-            Error::InvalidModel(
-                "Tensor has external data but no external data loader was provided".to_string(),
-            )
-        })?;
+        let loader = external_data_loader.ok_or(Error::ExternalDataRequiresPath)?;
         let external_info =
             ExternalDataInfo::from_key_value_pairs(tensor.external_data, loader.clone())?;
         TensorDataLocation::External(external_info)

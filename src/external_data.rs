@@ -99,18 +99,12 @@ impl ExternalDataLoader {
             .length
             .map_or(data.len(), |len| start.saturating_add(len as usize));
 
-        if start > data.len() {
-            return Err(Error::InvalidModel(format!(
-                "External data offset {start} exceeds file size {}",
-                data.len()
-            )));
-        }
-
-        if end > data.len() {
-            return Err(Error::InvalidModel(format!(
-                "External data range {start}..{end} exceeds file size {}",
-                data.len()
-            )));
+        if start > end || end > data.len() {
+            return Err(Error::ExternalDataOutOfBounds {
+                start,
+                end,
+                file_size: data.len(),
+            });
         }
 
         Ok(data.slice(start..end))

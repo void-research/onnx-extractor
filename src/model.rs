@@ -39,9 +39,23 @@ impl Model {
         Self::load_from_bytes_with_dir(bytes, model_dir)
     }
 
-    /// Load ONNX model from byte buffer (e.g., `Vec<u8>`, `Bytes`, `&'static [u8]`)
+    /// Load ONNX model from byte buffer (e.g., `Vec<u8>`, `Bytes`, `&'static [u8]`).
+    ///
+    /// Use [`Model::load_from_bytes_with_path`] if the model references external data files.
     pub fn load_from_bytes(data: impl Into<Bytes>) -> Result<Self, Error> {
         Self::load_from_bytes_with_dir(data.into(), None)
+    }
+
+    /// Load ONNX model from byte buffer (e.g., `Vec<u8>`, `Bytes`, `&'static [u8]`)
+    /// with a directory path for resolving external data files.
+    ///
+    /// Note: `path` must be the folder/directory containing the external data files, not a file path.
+    /// Use [`Model::load_from_bytes`] if the model contains no external data files.
+    pub fn load_from_bytes_with_path<P: AsRef<Path>>(
+        data: impl Into<Bytes>,
+        path: P,
+    ) -> Result<Self, Error> {
+        Self::load_from_bytes_with_dir(data.into(), Some(path.as_ref().to_path_buf()))
     }
 
     /// Load ONNX model from owned byte vector with optional model directory for external data

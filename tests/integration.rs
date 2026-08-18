@@ -175,3 +175,17 @@ fn test_display_trait() {
     assert!(graph_display.contains("ONNX Graph:"));
     assert!(graph_display.contains("Inputs:"));
 }
+
+#[test]
+fn test_load_from_bytes_and_with_path() {
+    let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
+    let bytes = std::fs::read(&path).expect("Failed to read mnist model bytes");
+
+    let model1 = Model::load_from_bytes(bytes.clone()).expect("Failed to load from bytes");
+    assert_eq!(model1.default_opset_version(), Some(12));
+
+    let dir = format!("{}/tests", env!("CARGO_MANIFEST_DIR"));
+    let model2 =
+        Model::load_from_bytes_with_path(bytes, dir).expect("Failed to load from bytes with path");
+    assert_eq!(model2.default_opset_version(), Some(12));
+}

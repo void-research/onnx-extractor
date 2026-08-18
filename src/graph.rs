@@ -119,7 +119,7 @@ impl Graph {
     /// additional prioritisation.
     ///
     /// If the graph contains cycles or there are unresolved dependencies,
-    /// the function returns an `Error::InvalidModel`.
+    /// the function returns an `Error::InvalidGraph`.
     pub fn topological_order(&self) -> Result<Vec<&Operation>, Error> {
         let op_count = self.operations.len();
 
@@ -171,9 +171,7 @@ impl Graph {
         if ordered.len() == op_count {
             Ok(ordered)
         } else {
-            Err(Error::InvalidModel(
-                "Graph has cycles or unresolved dependencies".to_string(),
-            ))
+            Err(Error::InvalidGraph)
         }
     }
 
