@@ -82,7 +82,7 @@ impl Graph {
 
     /// Get all operation types in this graph
     pub fn operation_types(&self) -> HashSet<&str> {
-        self.operations.iter().map(|op| op.op_type()).collect()
+        self.operations.iter().map(Operation::op_type).collect()
     }
 
     /// Count operations by type in this graph

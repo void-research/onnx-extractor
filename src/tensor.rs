@@ -36,7 +36,7 @@ impl<'a> TensorDataRef<'a> {
     pub fn len(&self) -> usize {
         match self {
             TensorDataRef::Raw(b) => b.len(),
-            TensorDataRef::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
+            TensorDataRef::Strings(parts) => parts.iter().map(Bytes::len).sum(),
             TensorDataRef::F32(v) => mem::size_of_val(*v),
             TensorDataRef::F64(v) => mem::size_of_val(*v),
             TensorDataRef::I32(v) => mem::size_of_val(*v),
@@ -106,7 +106,7 @@ impl TensorData {
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
-            TensorData::Strings(parts) => parts.iter().map(|b| b.len()).sum(),
+            TensorData::Strings(parts) => parts.iter().map(Bytes::len).sum(),
             TensorData::F32(v) => mem::size_of_val(v.as_slice()),
             TensorData::F64(v) => mem::size_of_val(v.as_slice()),
             TensorData::I32(v) => mem::size_of_val(v.as_slice()),

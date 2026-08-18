@@ -165,7 +165,7 @@ fn test_display_trait() {
     let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = Model::load_from_file(&path).expect("Failed to load mnist model");
 
-    let model_display = format!("{}", model);
+    let model_display = format!("{model}");
     assert!(model_display.contains("ONNX Model Information:"));
     assert!(model_display.contains("Producer Name:"));
     assert!(model_display.contains("ONNX Graph:"));
