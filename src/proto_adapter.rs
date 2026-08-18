@@ -56,12 +56,9 @@ pub(crate) fn tensor_from_proto(
     Ok(Tensor::new(tensor.name, tensor.dims, data_type, data))
 }
 
-fn tensor_from_value_info(
-    name: Option<String>,
-    vi_type: Option<TypeProto>,
-) -> Result<Option<Tensor>, Error> {
+fn tensor_from_value_info(name: Option<String>, vi_type: Option<TypeProto>) -> Option<Tensor> {
     let Some(type_proto::Value::TensorType(tensor_type)) = vi_type.and_then(|t| t.value) else {
-        return Ok(None);
+        return None;
     };
 
     let shape = tensor_type
@@ -76,12 +73,12 @@ fn tensor_from_value_info(
 
     let data_type = DataType::from_onnx_type(tensor_type.elem_type.unwrap_or(0));
 
-    Ok(Some(Tensor::new(
+    Some(Tensor::new(
         name,
         shape,
         data_type,
         TensorDataLocation::None,
-    )))
+    ))
 }
 
 /// Create Graph from ONNX GraphProto
@@ -113,7 +110,7 @@ pub(crate) fn graph_from_proto(
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
         if let Entry::Vacant(entry) = tensors.entry(name) {
             inputs.push(entry.key().clone());
-            if let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), input.r#type)? {
+            if let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), input.r#type) {
                 entry.insert(tensor);
             }
         }
@@ -128,7 +125,7 @@ pub(crate) fn graph_from_proto(
             .ok_or(Error::MissingField("graph output name"))?;
         outputs.push(name.clone());
         if let Entry::Vacant(entry) = tensors.entry(name)
-            && let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), output.r#type)?
+            && let Some(tensor) = tensor_from_value_info(Some(entry.key().clone()), output.r#type)
         {
             entry.insert(tensor);
         }
@@ -139,7 +136,7 @@ pub(crate) fn graph_from_proto(
         if let Some(name) = value_info.name.filter(|n| !n.is_empty())
             && let Entry::Vacant(entry) = tensors.entry(name)
             && let Some(tensor) =
-                tensor_from_value_info(Some(entry.key().clone()), value_info.r#type)?
+                tensor_from_value_info(Some(entry.key().clone()), value_info.r#type)
         {
             entry.insert(tensor);
         }
