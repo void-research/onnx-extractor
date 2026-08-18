@@ -4,7 +4,7 @@ use std::collections::HashMap;
 /// An ONNX operation/node in the computational graph
 #[derive(Debug)]
 pub struct Operation {
-    name: String,
+    name: Option<String>,
     op_type: String,
     inputs: Vec<String>,
     outputs: Vec<String>,
@@ -13,7 +13,7 @@ pub struct Operation {
 
 impl Operation {
     pub(crate) fn new(
-        name: String,
+        name: Option<String>,
         op_type: String,
         inputs: Vec<String>,
         outputs: Vec<String>,
@@ -29,8 +29,8 @@ impl Operation {
     }
 
     /// Operation name
-    pub fn name(&self) -> &str {
-        &self.name
+    pub fn name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     /// Operation type (e.g., "Conv", "Relu")

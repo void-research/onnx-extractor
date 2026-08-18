@@ -83,7 +83,7 @@ impl<'a> TensorDataRef<'a> {
     pub fn strings(&self) -> Result<&'a [Bytes], Error> {
         match self {
             TensorDataRef::Strings(v) => Ok(v),
-            _ => Err(Error::MissingField("tensor strings data".to_string())),
+            _ => Err(Error::MissingField("tensor strings data")),
         }
     }
 }
@@ -155,7 +155,7 @@ impl TensorData {
     pub fn strings(&self) -> Result<&[Bytes], Error> {
         match self {
             TensorData::Strings(v) => Ok(v),
-            _ => Err(Error::MissingField("tensor strings data".to_string())),
+            _ => Err(Error::MissingField("tensor strings data")),
         }
     }
 }
@@ -222,7 +222,7 @@ impl Tensor {
             TensorDataLocation::I64(v) => Ok(TensorDataRef::I64(v)),
             TensorDataLocation::U64(v) => Ok(TensorDataRef::U64(v)),
             TensorDataLocation::I32(v) => Ok(TensorDataRef::I32(v)),
-            TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
+            TensorDataLocation::None => Err(Error::MissingField("tensor data")),
         }
     }
 
@@ -242,7 +242,7 @@ impl Tensor {
             TensorDataLocation::I64(v) => Ok(TensorData::I64(v)),
             TensorDataLocation::U64(v) => Ok(TensorData::U64(v)),
             TensorDataLocation::I32(v) => Ok(TensorData::I32(v)),
-            TensorDataLocation::None => Err(Error::MissingField("tensor data".to_string())),
+            TensorDataLocation::None => Err(Error::MissingField("tensor data")),
         }
     }
 }

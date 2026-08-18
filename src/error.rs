@@ -12,7 +12,7 @@ pub enum Error {
     /// Model structure error
     InvalidModel(String),
     /// Missing required field
-    MissingField(String),
+    MissingField(&'static str),
     /// Unsupported feature
     Unsupported(String),
 }

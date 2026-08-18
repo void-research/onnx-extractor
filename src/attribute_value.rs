@@ -33,7 +33,7 @@ impl AttributeValue {
     pub fn as_string_validated(&self) -> Result<&str, Error> {
         match self {
             AttributeValue::String(s) => Ok(std::str::from_utf8(s)?),
-            _ => Err(Error::MissingField("string attribute".to_string())),
+            _ => Err(Error::MissingField("string attribute")),
         }
     }
 
@@ -64,7 +64,7 @@ impl AttributeValue {
                 .iter()
                 .map(|s| Ok(std::str::from_utf8(s)?))
                 .collect(),
-            _ => Err(Error::MissingField("strings attribute".to_string())),
+            _ => Err(Error::MissingField("strings attribute")),
         }
     }
 

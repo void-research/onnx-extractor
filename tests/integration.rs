@@ -58,7 +58,8 @@ fn test_operation_queries() {
 
     // get_operation for a real op name
     let first_op = &model.graph().operations()[0];
-    let found = model.graph().get_operation(first_op.name());
+    let op_name = first_op.name().expect("first op should have a name");
+    let found = model.graph().get_operation(op_name);
     assert!(
         found.is_some(),
         "get_operation should return the operation by name"
@@ -106,13 +107,15 @@ fn test_topological_order() {
         .graph()
         .operations()
         .iter()
-        .map(|o| o.name())
+        .filter_map(|o| o.name())
         .collect();
     for op in ordered {
-        assert!(
-            orig_names.contains(op.name()),
-            "ordered op should exist in original operations"
-        );
+        if let Some(name) = op.name() {
+            assert!(
+                orig_names.contains(name),
+                "ordered op should exist in original operations"
+            );
+        }
     }
 }
 

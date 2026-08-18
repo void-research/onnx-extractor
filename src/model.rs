@@ -13,11 +13,11 @@ use crate::{Error, Graph, ModelProto, proto_adapter};
 pub struct Model {
     graph: Graph,
     ir_version: i64,
-    producer_name: String,
-    producer_version: String,
-    domain: String,
-    model_version: i64,
-    doc_string: String,
+    producer_name: Option<String>,
+    producer_version: Option<String>,
+    domain: Option<String>,
+    model_version: Option<i64>,
+    doc_string: Option<String>,
     metadata: HashMap<String, String>,
     opsets: HashMap<String, i64>,
 }
@@ -67,14 +67,18 @@ impl Model {
             .map(|opset| (opset.domain.unwrap_or_default(), opset.version.unwrap_or(0)))
             .collect();
 
+        let ir_version = model
+            .ir_version
+            .ok_or(Error::MissingField("model ir_version"))?;
+
         Ok(Model {
             graph: proto_adapter::graph_from_proto(graph, external_data_loader.as_ref())?,
-            ir_version: model.ir_version.unwrap_or(0),
-            producer_name: model.producer_name.unwrap_or_default(),
-            producer_version: model.producer_version.unwrap_or_default(),
-            domain: model.domain.unwrap_or_default(),
-            model_version: model.model_version.unwrap_or(0),
-            doc_string: model.doc_string.unwrap_or_default(),
+            ir_version,
+            producer_name: model.producer_name,
+            producer_version: model.producer_version,
+            domain: model.domain,
+            model_version: model.model_version,
+            doc_string: model.doc_string,
             metadata,
             opsets,
         })
@@ -101,28 +105,28 @@ impl Model {
     }
 
     /// Get producer name
-    pub fn producer_name(&self) -> &str {
-        &self.producer_name
+    pub fn producer_name(&self) -> Option<&str> {
+        self.producer_name.as_deref()
     }
 
     /// Get producer version
-    pub fn producer_version(&self) -> &str {
-        &self.producer_version
+    pub fn producer_version(&self) -> Option<&str> {
+        self.producer_version.as_deref()
     }
 
     /// Get model domain
-    pub fn domain(&self) -> &str {
-        &self.domain
+    pub fn domain(&self) -> Option<&str> {
+        self.domain.as_deref()
     }
 
     /// Get model version
-    pub fn model_version(&self) -> i64 {
+    pub fn model_version(&self) -> Option<i64> {
         self.model_version
     }
 
     /// Get documentation string
-    pub fn doc_string(&self) -> &str {
-        &self.doc_string
+    pub fn doc_string(&self) -> Option<&str> {
+        self.doc_string.as_deref()
     }
 
     /// Get custom metadata properties
@@ -140,11 +144,11 @@ impl std::fmt::Display for Model {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "ONNX Model Information:")?;
         writeln!(f, "IR Version: {}", self.ir_version)?;
-        writeln!(f, "Producer Name: {}", self.producer_name)?;
-        writeln!(f, "Producer Version: {}", self.producer_version)?;
-        writeln!(f, "Domain: {}", self.domain)?;
-        writeln!(f, "Model Version: {}", self.model_version)?;
-        writeln!(f, "Description: {}", self.doc_string)?;
+        writeln!(f, "Producer Name: {:?}", self.producer_name)?;
+        writeln!(f, "Producer Version: {:?}", self.producer_version)?;
+        writeln!(f, "Domain: {:?}", self.domain)?;
+        writeln!(f, "Model Version: {:?}", self.model_version)?;
+        writeln!(f, "Description: {:?}", self.doc_string)?;
         writeln!(f, "Metadata: {:?}", self.metadata)?;
         writeln!(f, "Opsets: {:?}", self.opsets)?;
 

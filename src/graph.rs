@@ -5,7 +5,7 @@ use crate::{AttributeValue, Error, Operation, Tensor};
 /// Represents a computational graph in an ONNX model
 #[derive(Debug)]
 pub struct Graph {
-    name: String,
+    name: Option<String>,
     tensors: HashMap<String, Tensor>,
     operations: Vec<Operation>,
     inputs: Vec<String>,
@@ -14,7 +14,7 @@ pub struct Graph {
 
 impl Graph {
     pub(crate) fn new(
-        name: String,
+        name: Option<String>,
         tensors: HashMap<String, Tensor>,
         operations: Vec<Operation>,
         inputs: Vec<String>,
@@ -64,8 +64,8 @@ impl Graph {
     }
 
     /// Get graph name
-    pub fn graph_name(&self) -> &str {
-        &self.name
+    pub fn graph_name(&self) -> Option<&str> {
+        self.name.as_deref()
     }
 
     /// Get all operations of a specific type in this graph
@@ -77,7 +77,7 @@ impl Graph {
 
     /// Get operation by name in this graph
     pub fn get_operation(&self, name: &str) -> Option<&Operation> {
-        self.operations.iter().find(|op| op.name() == name)
+        self.operations.iter().find(|op| op.name() == Some(name))
     }
 
     /// Get all operation types in this graph
@@ -186,7 +186,7 @@ impl Graph {
         let weight_count = self.get_weight_tensors().count();
         let op_counts = self.count_operations_by_type();
 
-        writeln!(f, "{indent}ONNX Graph: {}", self.name)?;
+        writeln!(f, "{indent}ONNX Graph: {:?}", self.name)?;
         writeln!(
             f,
             "{indent}Inputs: {} | Outputs: {} | Operations: {} | Tensors: {}",
@@ -228,7 +228,7 @@ impl Graph {
         for op in &self.operations {
             writeln!(
                 f,
-                "{indent}  {} ({}): {} -> {}",
+                "{indent}  {:?} ({}): {} -> {}",
                 op.name(),
                 op.op_type(),
                 op.inputs().join(", "),

@@ -87,7 +87,7 @@ fn tensor_from_value_info(vi: ValueInfoProto) -> Result<Option<Tensor>, Error> {
             ));
         }
         Some(t) => DataType::from_onnx_type(t),
-        None => return Err(Error::MissingField("tensor elem_type".to_string())),
+        None => return Err(Error::MissingField("tensor elem_type")),
     };
 
     Ok(Some(Tensor::new(
@@ -111,7 +111,7 @@ pub(crate) fn graph_from_proto(
     for tensor in graph.initializer {
         let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
         if onnx_tensor.name().is_empty() {
-            return Err(Error::MissingField("initialiser tensor name".to_string()));
+            return Err(Error::MissingField("initialiser tensor name"));
         }
         tensors.insert(onnx_tensor.name().to_string(), onnx_tensor);
     }
@@ -123,7 +123,7 @@ pub(crate) fn graph_from_proto(
             .name
             .as_deref()
             .filter(|n| !n.is_empty())
-            .ok_or_else(|| Error::MissingField("graph input name".to_string()))?;
+            .ok_or(Error::MissingField("graph input name"))?;
         // If the name is already in tensors, it's an initialiser, so we skip adding it to inputs/tensors
         if !tensors.contains_key(name) {
             inputs.push(name.to_string());
@@ -140,7 +140,7 @@ pub(crate) fn graph_from_proto(
             .name
             .as_deref()
             .filter(|n| !n.is_empty())
-            .ok_or_else(|| Error::MissingField("graph output name".to_string()))?;
+            .ok_or(Error::MissingField("graph output name"))?;
         outputs.push(name.to_string());
         if !tensors.contains_key(name)
             && let Some(tensor) = tensor_from_value_info(output)?
@@ -167,13 +167,7 @@ pub(crate) fn graph_from_proto(
         .map(|node| operation_from_node_proto(node, external_data_loader))
         .collect::<Result<Vec<_>, Error>>()?;
 
-    Ok(Graph::new(
-        graph.name.unwrap_or_default(),
-        tensors,
-        operations,
-        inputs,
-        outputs,
-    ))
+    Ok(Graph::new(graph.name, tensors, operations, inputs, outputs))
 }
 
 /// Create Operation from ONNX NodeProto
@@ -181,6 +175,11 @@ pub(crate) fn operation_from_node_proto(
     node: NodeProto,
     external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<Operation, Error> {
+    let op_type = node
+        .op_type
+        .filter(|s| !s.is_empty())
+        .ok_or(Error::MissingField("node op_type"))?;
+
     let attributes: HashMap<String, AttributeValue> = node
         .attribute
         .into_iter()
@@ -188,8 +187,8 @@ pub(crate) fn operation_from_node_proto(
         .collect::<Result<HashMap<_, _>, Error>>()?;
 
     Ok(Operation::new(
-        node.name.unwrap_or_default(),
-        node.op_type.unwrap_or_default(),
+        node.name,
+        op_type,
         node.input,
         node.output,
         attributes,
@@ -205,21 +204,22 @@ pub(crate) fn parse_attribute_proto(
     attr: AttributeProto,
     external_data_loader: Option<&Arc<ExternalDataLoader>>,
 ) -> Result<(String, AttributeValue), Error> {
+    let name = attr
+        .name
+        .filter(|n| !n.is_empty())
+        .ok_or(Error::MissingField("attribute name"))?;
+
     let value = match attr.r#type.unwrap_or(0) {
         1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
         2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
         3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
         4 => {
-            let tensor = attr
-                .t
-                .ok_or_else(|| Error::MissingField("tensor attribute data".to_string()))?;
+            let tensor = attr.t.ok_or(Error::MissingField("tensor attribute data"))?;
             let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
             Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
         }
         5 => {
-            let graph = attr
-                .g
-                .ok_or_else(|| Error::MissingField("graph attribute data".to_string()))?;
+            let graph = attr.g.ok_or(Error::MissingField("graph attribute data"))?;
             let onnx_graph = graph_from_proto(graph, external_data_loader)?;
             Ok(AttributeValue::Graph(Box::new(onnx_graph)))
         }
@@ -241,5 +241,5 @@ pub(crate) fn parse_attribute_proto(
         n => Err(Error::Unsupported(format!("attribute type: {n}"))),
     }?;
 
-    Ok((attr.name.unwrap_or_default(), value))
+    Ok((name, value))
 }
