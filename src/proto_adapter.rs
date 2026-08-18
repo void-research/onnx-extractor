@@ -201,21 +201,10 @@ pub(crate) fn parse_attribute_proto(
         .filter(|n| !n.is_empty())
         .ok_or(Error::MissingField("attribute name"))?;
 
-    let attr_type = attr.r#type.ok_or(Error::MissingField("attribute type"))?;
-
-    let value = match attr_type {
-        1 => {
-            let f = attr.f.ok_or(Error::MissingField("float attribute data"))?;
-            Ok(AttributeValue::Float(f))
-        }
-        2 => {
-            let i = attr.i.ok_or(Error::MissingField("int attribute data"))?;
-            Ok(AttributeValue::Int(i))
-        }
-        3 => {
-            let s = attr.s.ok_or(Error::MissingField("string attribute data"))?;
-            Ok(AttributeValue::String(s))
-        }
+    let value = match attr.r#type.ok_or(Error::MissingField("attribute type"))? {
+        1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
+        2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
+        3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
         4 => {
             let tensor = attr.t.ok_or(Error::MissingField("tensor attribute data"))?;
             let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;

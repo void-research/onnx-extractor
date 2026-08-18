@@ -25,6 +25,11 @@ fn load_mnist_model() {
         model.graph().tensors().keys().next().is_some(),
         "model should have tensors"
     );
+    assert_eq!(
+        model.default_opset_version(),
+        Some(12),
+        "mnist-12 should have default opset version 12"
+    );
 }
 
 #[test]

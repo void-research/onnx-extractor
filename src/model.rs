@@ -139,6 +139,11 @@ impl Model {
     pub fn opsets(&self) -> &HashMap<String, i64> {
         &self.opsets
     }
+
+    /// Get the imported opset version for the default ONNX domain ("")
+    pub fn default_opset_version(&self) -> Option<i64> {
+        self.opsets.get("").copied()
+    }
 }
 
 impl std::fmt::Display for Model {
