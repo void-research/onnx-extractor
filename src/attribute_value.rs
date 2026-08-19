@@ -37,7 +37,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract string value as owned `Bytes` without copying.
+    /// Extract string value as owned `Bytes`.
     pub fn into_string(self) -> Option<Bytes> {
         match self {
             AttributeValue::String(s) => Some(s),
@@ -68,7 +68,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract string array value as owned `Vec<Bytes>` without copying.
+    /// Extract string array value as owned `Vec<Bytes>`.
     pub fn into_strings(self) -> Option<Vec<Bytes>> {
         match self {
             AttributeValue::Strings(s) => Some(s),
@@ -100,7 +100,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract float vector as owned `Vec<f32>` without copying if the variant is `Floats`.
+    /// Extract float vector as owned `Vec<f32>` if the variant is `Floats`.
     pub fn into_floats(self) -> Option<Vec<f32>> {
         match self {
             AttributeValue::Floats(f) => Some(f),
@@ -116,7 +116,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract integer vector as owned `Vec<i64>` without copying if the variant is `Ints`.
+    /// Extract integer vector as owned `Vec<i64>` if the variant is `Ints`.
     pub fn into_ints(self) -> Option<Vec<i64>> {
         match self {
             AttributeValue::Ints(i) => Some(i),
@@ -132,7 +132,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract tensor as owned `Tensor` without copying if the variant is `Tensor`.
+    /// Extract tensor as owned `Tensor` if the variant is `Tensor`.
     pub fn into_tensor(self) -> Option<Tensor> {
         match self {
             AttributeValue::Tensor(t) => Some(*t),
@@ -148,7 +148,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract subgraph as owned `Graph` without copying if the variant is `Graph`.
+    /// Extract subgraph as owned `Graph` if the variant is `Graph`.
     pub fn into_graph(self) -> Option<Graph> {
         match self {
             AttributeValue::Graph(g) => Some(*g),
@@ -164,7 +164,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract tensor slice as owned `Box<[Tensor]>` without copying if the variant is `Tensors`.
+    /// Extract tensor slice as owned `Box<[Tensor]>` if the variant is `Tensors`.
     pub fn into_tensors(self) -> Option<Box<[Tensor]>> {
         match self {
             AttributeValue::Tensors(t) => Some(t),
@@ -180,7 +180,7 @@ impl AttributeValue {
         }
     }
 
-    /// Extract subgraph slice as owned `Box<[Graph]>` without copying if the variant is `Graphs`.
+    /// Extract subgraph slice as owned `Box<[Graph]>` if the variant is `Graphs`.
     pub fn into_graphs(self) -> Option<Box<[Graph]>> {
         match self {
             AttributeValue::Graphs(g) => Some(g),
