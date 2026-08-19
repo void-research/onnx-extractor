@@ -132,10 +132,10 @@ impl AttributeValue {
         }
     }
 
-    /// Extract tensor as owned `Box<Tensor>` without copying if the variant is `Tensor`.
-    pub fn into_tensor(self) -> Option<Box<Tensor>> {
+    /// Extract tensor as owned `Tensor` without copying if the variant is `Tensor`.
+    pub fn into_tensor(self) -> Option<Tensor> {
         match self {
-            AttributeValue::Tensor(t) => Some(t),
+            AttributeValue::Tensor(t) => Some(*t),
             _ => None,
         }
     }
@@ -148,10 +148,10 @@ impl AttributeValue {
         }
     }
 
-    /// Extract subgraph as owned `Box<Graph>` without copying if the variant is `Graph`.
-    pub fn into_graph(self) -> Option<Box<Graph>> {
+    /// Extract subgraph as owned `Graph` without copying if the variant is `Graph`.
+    pub fn into_graph(self) -> Option<Graph> {
         match self {
-            AttributeValue::Graph(g) => Some(g),
+            AttributeValue::Graph(g) => Some(*g),
             _ => None,
         }
     }
