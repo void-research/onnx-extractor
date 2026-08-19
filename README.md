@@ -10,9 +10,13 @@ use onnx_extractor::Model;
 // Load from file (uses mmap)
 let model = Model::load_from_file("model.onnx")?;
 
-// Load from bytes
+// Load from bytes (e.g. Vec<u8>, Bytes, &'static [u8])
 let bytes = std::fs::read("model.onnx")?;
 let model = Model::load_from_bytes(bytes)?;
+
+// Load from bytes with a directory path for external data files
+let bytes = std::fs::read("path/to/model.onnx")?;
+let model = Model::load_from_bytes_with_path(bytes, "path/to")?;
 ```
 
 ## Model and Graph Functions
@@ -26,15 +30,11 @@ println!("{}", model);
 let graph = model.graph();
 
 // Tensor access
-let tensor = graph.tensors().get("input_name"); // Returns Option<&Tensor>
+let tensor = graph.tensors().get("input_name"); // Option<&Tensor>
 let tensor_names = graph.tensors().keys(); // Iterator<Item = &String>
 let inputs = graph.get_input_tensors(); // Iterator<Item = &Tensor>
 let outputs = graph.get_output_tensors(); // Iterator<Item = &Tensor>
 let weights = graph.get_weight_tensors(); // Iterator<Item = &Tensor>
-
-// Extracting a tensor (moves out of graph so data can outlive it)
-// (Note: `model` must be declared as `mut model`)
-let owned_tensor = model.graph_mut().tensors_mut().remove("weight"); // Option<Tensor>
 
 // Operation access
 let operation = graph.get_operation("op_name"); // Option<&Operation>
@@ -43,12 +43,18 @@ let op_types = graph.operation_types(); // HashSet<&str>
 let op_counts = graph.count_operations_by_type(); // HashMap<&str, usize>
 
 // Topological order
-let topo_order = graph.topological_order()?; // Result<Vec<&Operation>, Error>
+let topo_order = graph.topological_order()?; // Vec<&Operation>
+
+// Extracting a tensor (moves out of graph so data can outlive it)
+// (Note: `model` must be declared as `mut model`)
+let owned_tensor = model.graph_mut().tensors_mut().remove("weight"); // Option<Tensor>
 ```
 
 ## Tensor Functions
 
 ```rust
+use onnx_extractor::TensorDataRef;
+
 let tensor = model.graph().tensors().get("weight").unwrap();
 
 // Name, shape and data type
@@ -57,7 +63,7 @@ println!("Shape: {:?}", tensor.shape());
 println!("Data type: {:?}", tensor.data_type());
 
 // Borrow tensor data
-let data_ref = tensor.data()?; // Returns Result<TensorDataRef<'_>, Error>
+let data_ref = tensor.data()?; // TensorDataRef<'_>
 println!("Data size: {} bytes", data_ref.len());
 
 // Get data as contiguous byte slice
@@ -73,16 +79,16 @@ if let Some(strings) = data_ref.strings() {
     }
 }
 
-// Access typed data
-if let TensorDataRef::F32(floats) = data_ref {
-    println!("First float: {}", floats[0]);
+// Access Raw data
+if let TensorDataRef::Raw(bytes) = &data_ref {
+    println!("Bytes length: {}", bytes.len());
 }
 
 // Consume tensor and get owned data
 // This allows the data to outlive the model itself
 // (Note: `model` must be declared as `mut model`)
 if let Some(owned_tensor) = model.graph_mut().tensors_mut().remove("weight") {
-    let owned_data = owned_tensor.into_data()?; // Returns Result<TensorData, Error>
+    let owned_data = owned_tensor.into_data()?; // TensorData
 }
 ```
 
@@ -94,7 +100,7 @@ The `data()` method returns a `TensorDataRef` which borrows from the model:
 pub enum TensorDataRef<'a> {
     /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
-    /// String tensor elements, each Arc-backed
+    /// String tensor elements (shared Bytes)
     Strings(&'a [Bytes]),
     /// Typed numeric data
     F32(&'a [f32]),
@@ -111,7 +117,7 @@ The `into_data()` method returns an owned `TensorData` (using Bytes or Vec stora
 pub enum TensorData {
     /// Contiguous buffer (mmap-backed or loaded)
     Raw(Bytes),
-    /// String tensor elements, each Arc-backed
+    /// String tensor elements (shared Bytes)
     Strings(Vec<Bytes>),
     /// Typed numeric data
     F32(Vec<f32>),
@@ -145,7 +151,7 @@ let activation_str = attributes.get("activation").and_then(|a| a.as_string_valid
 
 // Subgraph access (Control Flow subgraphs)
 if let Some(subgraph) = attributes.get("then_branch").and_then(|a| a.as_graph()) {
-    println!("Subgraph name: {}", subgraph.graph_name());
+    println!("Subgraph name: {:?}", subgraph.graph_name());
 }
 ```
 
@@ -179,7 +185,7 @@ ONNX models can store large tensor data in external files. This crate supports l
 let model = Model::load_from_file("large_model.onnx")?;
 
 // External data files (e.g., "large_model.onnx.data") are automatically discovered
-// and loaded lazily when tensor data is accessed
+// from the model directory and loaded lazily when tensor data is accessed
 
 let tensor = model.graph().tensors().get("large_weight").unwrap();
 

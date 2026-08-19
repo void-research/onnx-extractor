@@ -76,6 +76,7 @@ impl AttributeValue {
         }
     }
 
+    /// Get float value if the variant is `Float`.
     pub fn as_float(&self) -> Option<f32> {
         match self {
             AttributeValue::Float(f) => Some(*f),
@@ -83,6 +84,7 @@ impl AttributeValue {
         }
     }
 
+    /// Get integer value if the variant is `Int`.
     pub fn as_int(&self) -> Option<i64> {
         match self {
             AttributeValue::Int(i) => Some(*i),
@@ -90,6 +92,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow float slice if the variant is `Floats`.
     pub fn as_floats(&self) -> Option<&[f32]> {
         match self {
             AttributeValue::Floats(f) => Some(f),
@@ -97,6 +100,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract float vector as owned `Vec<f32>` without copying if the variant is `Floats`.
     pub fn into_floats(self) -> Option<Vec<f32>> {
         match self {
             AttributeValue::Floats(f) => Some(f),
@@ -104,6 +108,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow integer slice if the variant is `Ints`.
     pub fn as_ints(&self) -> Option<&[i64]> {
         match self {
             AttributeValue::Ints(i) => Some(i),
@@ -111,6 +116,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract integer vector as owned `Vec<i64>` without copying if the variant is `Ints`.
     pub fn into_ints(self) -> Option<Vec<i64>> {
         match self {
             AttributeValue::Ints(i) => Some(i),
@@ -118,6 +124,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow tensor if the variant is `Tensor`.
     pub fn as_tensor(&self) -> Option<&Tensor> {
         match self {
             AttributeValue::Tensor(t) => Some(t),
@@ -125,6 +132,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract tensor as owned `Box<Tensor>` without copying if the variant is `Tensor`.
     pub fn into_tensor(self) -> Option<Box<Tensor>> {
         match self {
             AttributeValue::Tensor(t) => Some(t),
@@ -132,6 +140,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow subgraph if the variant is `Graph`.
     pub fn as_graph(&self) -> Option<&Graph> {
         match self {
             AttributeValue::Graph(g) => Some(g),
@@ -139,6 +148,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract subgraph as owned `Box<Graph>` without copying if the variant is `Graph`.
     pub fn into_graph(self) -> Option<Box<Graph>> {
         match self {
             AttributeValue::Graph(g) => Some(g),
@@ -146,6 +156,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow tensor slice if the variant is `Tensors`.
     pub fn as_tensors(&self) -> Option<&[Tensor]> {
         match self {
             AttributeValue::Tensors(t) => Some(t),
@@ -153,6 +164,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract tensor slice as owned `Box<[Tensor]>` without copying if the variant is `Tensors`.
     pub fn into_tensors(self) -> Option<Box<[Tensor]>> {
         match self {
             AttributeValue::Tensors(t) => Some(t),
@@ -160,6 +172,7 @@ impl AttributeValue {
         }
     }
 
+    /// Borrow subgraph slice if the variant is `Graphs`.
     pub fn as_graphs(&self) -> Option<&[Graph]> {
         match self {
             AttributeValue::Graphs(g) => Some(g),
@@ -167,6 +180,7 @@ impl AttributeValue {
         }
     }
 
+    /// Extract subgraph slice as owned `Box<[Graph]>` without copying if the variant is `Graphs`.
     pub fn into_graphs(self) -> Option<Box<[Graph]>> {
         match self {
             AttributeValue::Graphs(g) => Some(g),

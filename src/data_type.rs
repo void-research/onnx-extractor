@@ -6,7 +6,9 @@ impl DataType {
         Self::try_from(data_type).unwrap_or(Self::Undefined)
     }
 
-    /// Get the size in bytes for numeric types
+    /// Get the storage size in bytes for numeric types.
+    ///
+    /// Returns `None` for dynamically-sized or undefined types (`String` and `Undefined`).
     pub fn size_in_bytes(&self) -> Option<usize> {
         match self {
             DataType::Complex128 => Some(16),
@@ -30,7 +32,7 @@ impl DataType {
         }
     }
 
-    /// Check if this is a floating point type
+    /// Check if this is a floating-point type
     pub fn is_float(&self) -> bool {
         matches!(
             self,

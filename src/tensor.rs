@@ -31,8 +31,8 @@ pub enum TensorDataRef<'a> {
 impl<'a> TensorDataRef<'a> {
     /// Total byte length across all variants
     ///
-    /// For Strings, returns sum of all string element bytes.
-    /// If all Strings are empty, returns 0.
+    /// For `Strings`, returns the sum of all string element byte lengths.
+    /// If all `Strings` are empty, returns 0.
     pub fn len(&self) -> usize {
         match self {
             TensorDataRef::Raw(b) => b.len(),
@@ -47,8 +47,8 @@ impl<'a> TensorDataRef<'a> {
 
     /// Returns true if data contains no elements
     ///
-    /// For Raw and Numeric, equivalent to len equals zero.
-    /// For Strings, checks if vector is empty. Empty strings are still elements.
+    /// For `Raw` and numeric variants, equivalent to `len() == 0`.
+    /// For `Strings`, checks if the slice of string elements is empty.
     pub fn is_empty(&self) -> bool {
         match self {
             TensorDataRef::Raw(b) => b.is_empty(),
@@ -63,7 +63,7 @@ impl<'a> TensorDataRef<'a> {
 
     /// Get data as contiguous byte slice
     ///
-    /// Raw and Numeric variants borrow directly.
+    /// Raw and numeric variants borrow directly.
     /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
     pub fn as_slice(&self) -> Option<&[u8]> {
         match self {
@@ -101,8 +101,8 @@ pub enum TensorData {
 impl TensorData {
     /// Total byte length across all variants
     ///
-    /// For Strings, returns sum of all string element bytes.
-    /// If all Strings are empty, returns 0.
+    /// For `Strings`, returns the sum of all string element byte lengths.
+    /// If all `Strings` are empty, returns 0.
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
@@ -117,8 +117,8 @@ impl TensorData {
 
     /// Returns true if data contains no elements
     ///
-    /// For Raw and Numeric, equivalent to len equals zero.
-    /// For Strings, checks if vector is empty. Empty strings are still elements.
+    /// For `Raw` and numeric variants, equivalent to `len() == 0`.
+    /// For `Strings`, checks if the vector of string elements is empty.
     pub fn is_empty(&self) -> bool {
         match self {
             TensorData::Raw(b) => b.is_empty(),
@@ -133,7 +133,7 @@ impl TensorData {
 
     /// Get data as contiguous byte slice
     ///
-    /// Raw and Numeric variants borrow directly.
+    /// Raw and numeric variants borrow directly.
     /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
     pub fn as_slice(&self) -> Option<&[u8]> {
         match self {

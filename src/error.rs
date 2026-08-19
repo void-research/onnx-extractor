@@ -7,9 +7,9 @@ pub enum Error {
     Decode(prost::DecodeError),
     /// UTF-8 conversion error
     Utf8(std::str::Utf8Error),
-    /// Integer parse error in model metadata
+    /// Integer parse error
     ParseInt(std::num::ParseIntError),
-    /// Lock poisoned error
+    /// Lock poisoned error when accessing external data cache
     ExternalDataLockPoisoned,
     /// Invalid graph structure
     InvalidGraph,

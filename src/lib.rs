@@ -11,14 +11,14 @@
 //! ## Zero-Copy Design
 //!
 //! `Tensor::data()` returns a `TensorDataRef` which borrows tensor data without copying:
-//! - Raw variants use shared ownership (`Bytes`)
+//! - Raw variant uses shared ownership (`Bytes`)
 //! - Numeric variants borrow directly (`&[T]`)
-//! - Strings variants borrow elements (`&[Bytes]`)
+//! - Strings variant borrows elements (`&[Bytes]`)
 //!
 //! `Tensor::into_data()` returns owned `TensorData` without copying:
-//! - Raw returns shared ownership (`Bytes`)
-//! - Numeric returns owned vectors (`Vec<T>`)
-//! - Strings returns owned vectors of shared elements (`Vec<Bytes>`)
+//! - Raw variant returns shared ownership (`Bytes`)
+//! - Numeric variants return owned vectors (`Vec<T>`)
+//! - Strings variant returns owned vectors of shared elements (`Vec<Bytes>`)
 //!
 //! Endianness: Raw tensor data uses little-endian byte order as defined in the ONNX specification. Typed fields use native host representation.
 //!
@@ -38,7 +38,7 @@
 //!         println!("Data size: {} bytes", bytes.len());
 //!     }
 //! }
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok::<(), onnx_extractor::Error>(())
 //! ```
 
 // include generated protobuf code inside a small module so we can silence

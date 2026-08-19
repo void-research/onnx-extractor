@@ -36,7 +36,7 @@ impl Graph {
 
     /// Mutable reference to all tensors in this graph.
     ///
-    /// To remove, drain, or modify tensors directly.
+    /// Allows removing, draining, or modifying tensors directly.
     pub fn tensors_mut(&mut self) -> &mut HashMap<String, Tensor> {
         &mut self.tensors
     }
@@ -48,7 +48,7 @@ impl Graph {
 
     /// Mutable reference to all operations in the graph.
     ///
-    /// To remove, drain, or modify operations directly.
+    /// Allows removing, draining, or modifying operations directly.
     pub fn operations_mut(&mut self) -> &mut Vec<Operation> {
         &mut self.operations
     }
@@ -63,7 +63,7 @@ impl Graph {
         &self.outputs
     }
 
-    /// Get graph name
+    /// Get graph name, if specified
     pub fn graph_name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -119,7 +119,7 @@ impl Graph {
     /// additional prioritisation.
     ///
     /// If the graph contains cycles or there are unresolved dependencies,
-    /// the function returns an `Error::InvalidGraph`.
+    /// the function returns an [`Error::InvalidGraph`].
     pub fn topological_order(&self) -> Result<Vec<&Operation>, Error> {
         let op_count = self.operations.len();
 

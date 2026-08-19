@@ -37,12 +37,12 @@ fn test_tensor_queries() {
     let path = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), MODEL_PATH);
     let model = Model::load_from_file(&path).expect("Failed to load mnist model");
 
-    // tensor names should be non-empty and get_tensor should return for the first one
+    // tensor names should be non-empty and tensors().get() should return the tensor for the first one
     let mut names = model.graph().tensors().keys();
     let first_name = names.next().expect("tensor_names should not be empty");
     assert!(
         model.graph().tensors().get(first_name).is_some(),
-        "get_tensor should find the tensor"
+        "tensors().get() should find the tensor"
     );
 }
 

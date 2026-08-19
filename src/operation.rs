@@ -55,7 +55,7 @@ impl Operation {
 
     /// Mutable reference to all attributes.
     ///
-    /// To remove or drain attributes directly.
+    /// Allows removing, draining, or modifying attributes directly.
     pub fn attributes_mut(&mut self) -> &mut HashMap<String, AttributeValue> {
         &mut self.attributes
     }

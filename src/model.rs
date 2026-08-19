@@ -23,7 +23,9 @@ pub struct Model {
 }
 
 impl Model {
-    /// Load ONNX model from file path
+    /// Load ONNX model from a file path using memory mapping (`mmap`).
+    ///
+    /// The parent directory of `path` is used to resolve external data files.
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
         let file = File::open(path)?;
@@ -58,7 +60,7 @@ impl Model {
         Self::load_from_bytes_with_dir(data.into(), Some(path.as_ref().to_path_buf()))
     }
 
-    /// Load ONNX model from owned byte vector with optional model directory for external data
+    /// Load ONNX model from `Bytes` buffer with optional model directory for external data
     fn load_from_bytes_with_dir(data: Bytes, model_dir: Option<PathBuf>) -> Result<Self, Error> {
         let model = ModelProto::decode(data)?;
         let graph = model.graph.ok_or(Error::MissingField("model graph"))?;

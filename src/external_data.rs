@@ -63,10 +63,11 @@ impl ExternalDataLoader {
         }
     }
 
-    // This method lazily loads the entire external file into the cache on first access,
-    // then returns a slice of the cached data based on offset and length.
-    // It uses a slower hold lock while loading style to stop multiple threads from
-    // loading the same file into memory if both race past read.
+    // Lazily loads the entire external file into the cache on first access,
+    // then returns a slice of the cached `Bytes` based on offset and length.
+    // Uses a double-checked locking pattern: first a cheap read-lock check,
+    // then a write-lock with a second check to prevent duplicate loads when
+    // multiple threads race past the initial read.
     fn load_data(&self, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         {
             let cache = self.cache.read()?;
