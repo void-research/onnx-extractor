@@ -21,9 +21,9 @@ pub enum Error {
     UnsupportedAttributeType(i32),
     /// External data slice range exceeds file size
     ExternalDataOutOfBounds {
-        start: usize,
-        end: usize,
-        file_size: usize,
+        start: u64,
+        end: u64,
+        file_size: u64,
     },
 }
 

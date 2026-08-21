@@ -95,20 +95,23 @@ impl ExternalDataLoader {
     }
 
     fn slice_data(data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
-        let start = info.offset.unwrap_or(0) as usize;
+        let file_size = data.len() as u64;
+        let start = info.offset.unwrap_or(0);
         let end = info
             .length
-            .map_or(data.len(), |len| start.saturating_add(len as usize));
+            .map_or(file_size, |len| start.saturating_add(len));
 
-        if start > end || end > data.len() {
+        if start > end || end > file_size {
             return Err(Error::ExternalDataOutOfBounds {
                 start,
                 end,
-                file_size: data.len(),
+                file_size,
             });
         }
 
-        Ok(data.slice(start..end))
+        let start_idx = usize::try_from(start).expect("start <= file_size <= usize::MAX");
+        let end_idx = usize::try_from(end).expect("end <= file_size <= usize::MAX");
+        Ok(data.slice(start_idx..end_idx))
     }
 }
 
