@@ -1,3 +1,4 @@
+use crate::attribute_proto::AttributeType;
 use crate::external_data::{ExternalDataInfo, ExternalDataLoader};
 use crate::tensor::TensorDataLocation;
 use crate::{
@@ -191,36 +192,45 @@ pub(crate) fn parse_attribute_proto(
         .filter(|n| !n.is_empty())
         .ok_or(Error::MissingField("attribute name"))?;
 
-    let value = match attr.r#type.ok_or(Error::MissingField("attribute type"))? {
-        1 => AttributeValue::Float(attr.f.unwrap_or(0.0)),
-        2 => AttributeValue::Int(attr.i.unwrap_or(0)),
-        3 => AttributeValue::String(attr.s.unwrap_or_default()),
-        4 => {
+    let raw_type = attr.r#type.ok_or(Error::MissingField("attribute type"))?;
+
+    let attr_type =
+        AttributeType::try_from(raw_type).map_err(|_| Error::UnsupportedAttributeType(raw_type))?;
+
+    let value = match attr_type {
+        AttributeType::Float => AttributeValue::Float(attr.f.unwrap_or(0.0)),
+        AttributeType::Int => AttributeValue::Int(attr.i.unwrap_or(0)),
+        AttributeType::String => AttributeValue::String(attr.s.unwrap_or_default()),
+        AttributeType::Tensor => {
             let tensor = attr.t.ok_or(Error::MissingField("tensor attribute data"))?;
             let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
             AttributeValue::Tensor(Box::new(onnx_tensor))
         }
-        5 => {
+        AttributeType::Graph => {
             let graph = attr.g.ok_or(Error::MissingField("graph attribute data"))?;
             let onnx_graph = graph_from_proto(graph, external_data_loader)?;
             AttributeValue::Graph(Box::new(onnx_graph))
         }
-        6 => AttributeValue::Floats(attr.floats),
-        7 => AttributeValue::Ints(attr.ints),
-        8 => AttributeValue::Strings(attr.strings),
-        9 => AttributeValue::Tensors(
+        AttributeType::Floats => AttributeValue::Floats(attr.floats),
+        AttributeType::Ints => AttributeValue::Ints(attr.ints),
+        AttributeType::Strings => AttributeValue::Strings(attr.strings),
+        AttributeType::Tensors => AttributeValue::Tensors(
             attr.tensors
                 .into_iter()
                 .map(|tensor| tensor_from_proto(tensor, external_data_loader))
                 .collect::<Result<Box<[Tensor]>, Error>>()?,
         ),
-        10 => AttributeValue::Graphs(
+        AttributeType::Graphs => AttributeValue::Graphs(
             attr.graphs
                 .into_iter()
                 .map(|graph| graph_from_proto(graph, external_data_loader))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
         ),
-        n => return Err(Error::UnsupportedAttributeType(n)),
+        AttributeType::Undefined
+        | AttributeType::SparseTensor
+        | AttributeType::SparseTensors
+        | AttributeType::TypeProto
+        | AttributeType::TypeProtos => return Err(Error::UnsupportedAttributeType(raw_type)),
     };
 
     Ok((name, value))
