@@ -192,36 +192,36 @@ pub(crate) fn parse_attribute_proto(
         .ok_or(Error::MissingField("attribute name"))?;
 
     let value = match attr.r#type.ok_or(Error::MissingField("attribute type"))? {
-        1 => Ok(AttributeValue::Float(attr.f.unwrap_or(0.0))),
-        2 => Ok(AttributeValue::Int(attr.i.unwrap_or(0))),
-        3 => Ok(AttributeValue::String(attr.s.unwrap_or_default())),
+        1 => AttributeValue::Float(attr.f.unwrap_or(0.0)),
+        2 => AttributeValue::Int(attr.i.unwrap_or(0)),
+        3 => AttributeValue::String(attr.s.unwrap_or_default()),
         4 => {
             let tensor = attr.t.ok_or(Error::MissingField("tensor attribute data"))?;
             let onnx_tensor = tensor_from_proto(tensor, external_data_loader)?;
-            Ok(AttributeValue::Tensor(Box::new(onnx_tensor)))
+            AttributeValue::Tensor(Box::new(onnx_tensor))
         }
         5 => {
             let graph = attr.g.ok_or(Error::MissingField("graph attribute data"))?;
             let onnx_graph = graph_from_proto(graph, external_data_loader)?;
-            Ok(AttributeValue::Graph(Box::new(onnx_graph)))
+            AttributeValue::Graph(Box::new(onnx_graph))
         }
-        6 => Ok(AttributeValue::Floats(attr.floats)),
-        7 => Ok(AttributeValue::Ints(attr.ints)),
-        8 => Ok(AttributeValue::Strings(attr.strings)),
-        9 => Ok(AttributeValue::Tensors(
+        6 => AttributeValue::Floats(attr.floats),
+        7 => AttributeValue::Ints(attr.ints),
+        8 => AttributeValue::Strings(attr.strings),
+        9 => AttributeValue::Tensors(
             attr.tensors
                 .into_iter()
                 .map(|tensor| tensor_from_proto(tensor, external_data_loader))
                 .collect::<Result<Box<[Tensor]>, Error>>()?,
-        )),
-        10 => Ok(AttributeValue::Graphs(
+        ),
+        10 => AttributeValue::Graphs(
             attr.graphs
                 .into_iter()
                 .map(|graph| graph_from_proto(graph, external_data_loader))
                 .collect::<Result<Box<[Graph]>, Error>>()?,
-        )),
-        n => Err(Error::UnsupportedAttributeType(n)),
-    }?;
+        ),
+        n => return Err(Error::UnsupportedAttributeType(n)),
+    };
 
     Ok((name, value))
 }
