@@ -27,6 +27,11 @@ Global metadata is accessed from the `Model` container, while graph structure an
 // Model summary
 println!("{}", model);
 
+// Get individual metadata items
+let opset = model.default_opset_version(); // Option<i64>
+let metadata = model.metadata(); // &HashMap<String, String>
+let ir_ver = model.ir_version(); // i64
+
 let graph = model.graph();
 
 // Tensor access
@@ -61,6 +66,9 @@ let tensor = model.graph().tensors().get("weight").unwrap();
 println!("Name: {:?}", tensor.name());
 println!("Shape: {:?}", tensor.shape());
 println!("Data type: {:?}", tensor.data_type());
+
+// Check if tensor contains data (does not trigger external file loading or mmap)
+let has_data = tensor.has_data(); // bool
 
 // Borrow tensor data
 let data_ref = tensor.data()?; // TensorDataRef<'_>
