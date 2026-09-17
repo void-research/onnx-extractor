@@ -3,7 +3,7 @@ use std::{mem, slice};
 
 use crate::{DataType, Error, external_data::ExternalDataInfo};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) enum TensorDataLocation {
     None,
     External(ExternalDataInfo),
