@@ -32,6 +32,7 @@ let opset = model.default_opset_version(); // Option<i64>
 let metadata = model.metadata(); // &HashMap<String, String>
 let ir_ver = model.ir_version(); // i64
 
+// Graph access
 let graph = model.graph();
 
 // Tensor access
