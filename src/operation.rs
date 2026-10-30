@@ -29,26 +29,31 @@ impl Operation {
     }
 
     /// Operation name
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
     /// Operation type (e.g., "Conv", "Relu")
+    #[must_use]
     pub fn op_type(&self) -> &str {
         &self.op_type
     }
 
     /// Input tensor names
+    #[must_use]
     pub fn inputs(&self) -> &[String] {
         &self.inputs
     }
 
     /// Output tensor names
+    #[must_use]
     pub fn outputs(&self) -> &[String] {
         &self.outputs
     }
 
     /// Reference to all attributes
+    #[must_use]
     pub fn attributes(&self) -> &HashMap<String, AttributeValue> {
         &self.attributes
     }

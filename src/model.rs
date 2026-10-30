@@ -10,6 +10,7 @@ use crate::external_data::ExternalDataLoader;
 use crate::{Error, Graph, ModelProto, proto_adapter};
 
 /// Main ONNX model container
+#[derive(Debug)]
 pub struct Model {
     graph: Graph,
     ir_version: i64,
@@ -35,6 +36,7 @@ impl Model {
         // Extract model directory for external data loading
         let model_dir = path
             .parent()
+            .filter(|p| !p.as_os_str().is_empty())
             .map(Path::to_path_buf)
             .or_else(|| std::env::current_dir().ok());
 
@@ -75,14 +77,11 @@ impl Model {
             .filter_map(|prop| prop.key.zip(prop.value))
             .collect();
 
-        let opsets: HashMap<String, i64> = model
-            .opset_import
-            .into_iter()
-            .map(|opset| {
-                let version = opset.version.ok_or(Error::MissingField("opset version"))?;
-                Ok((opset.domain.unwrap_or_default(), version))
-            })
-            .collect::<Result<_, Error>>()?;
+        let mut opsets = HashMap::with_capacity(model.opset_import.len());
+        for opset in model.opset_import {
+            let version = opset.version.ok_or(Error::MissingField("opset version"))?;
+            opsets.insert(opset.domain.unwrap_or_default(), version);
+        }
 
         let ir_version = model
             .ir_version
@@ -102,6 +101,7 @@ impl Model {
     }
 
     /// Reference to the root graph of the model
+    #[must_use]
     pub fn graph(&self) -> &Graph {
         &self.graph
     }
@@ -112,51 +112,61 @@ impl Model {
     }
 
     /// Consume the model and return the root graph
+    #[must_use]
     pub fn into_graph(self) -> Graph {
         self.graph
     }
 
     /// Get IR version
+    #[must_use]
     pub fn ir_version(&self) -> i64 {
         self.ir_version
     }
 
     /// Get producer name
+    #[must_use]
     pub fn producer_name(&self) -> Option<&str> {
         self.producer_name.as_deref()
     }
 
     /// Get producer version
+    #[must_use]
     pub fn producer_version(&self) -> Option<&str> {
         self.producer_version.as_deref()
     }
 
     /// Get model domain
+    #[must_use]
     pub fn domain(&self) -> Option<&str> {
         self.domain.as_deref()
     }
 
     /// Get model version
+    #[must_use]
     pub fn model_version(&self) -> Option<i64> {
         self.model_version
     }
 
     /// Get documentation string
+    #[must_use]
     pub fn doc_string(&self) -> Option<&str> {
         self.doc_string.as_deref()
     }
 
     /// Get custom metadata properties
+    #[must_use]
     pub fn metadata(&self) -> &HashMap<String, String> {
         &self.metadata
     }
 
     /// Get operator set imports (domain -> version)
+    #[must_use]
     pub fn opsets(&self) -> &HashMap<String, i64> {
         &self.opsets
     }
 
     /// Get the imported opset version for the default ONNX domain ("")
+    #[must_use]
     pub fn default_opset_version(&self) -> Option<i64> {
         self.opsets.get("").copied()
     }

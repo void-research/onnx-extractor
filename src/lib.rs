@@ -49,7 +49,10 @@ mod onnx_generated {
 }
 
 pub(crate) mod proto_adapter;
-pub(crate) use onnx_generated::*;
+pub(crate) use onnx_generated::{
+    AttributeProto, GraphProto, ModelProto, NodeProto, StringStringEntryProto, TensorProto,
+    TypeProto, attribute_proto, tensor_proto, tensor_shape_proto, type_proto,
+};
 
 pub mod attribute_value;
 pub mod data_type;

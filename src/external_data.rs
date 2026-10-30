@@ -7,35 +7,37 @@ use std::sync::{Arc, RwLock};
 
 use crate::{Error, StringStringEntryProto};
 
-#[derive(Debug, Clone)]
-pub struct ExternalDataInfo {
+#[derive(Debug)]
+pub(crate) struct ExternalDataInfo {
     location: String,
-    offset: Option<u64>,
+    offset: u64,
     length: Option<u64>,
     loader: Arc<ExternalDataLoader>,
 }
 
 impl ExternalDataInfo {
-    pub fn from_key_value_pairs(
+    pub(crate) fn from_key_value_pairs(
         pairs: Vec<StringStringEntryProto>,
         loader: Arc<ExternalDataLoader>,
     ) -> Result<Self, Error> {
         let mut location: Option<String> = None;
-        let mut offset: Option<u64> = None;
+        let mut offset: u64 = 0;
         let mut length: Option<u64> = None;
 
         for pair in pairs {
             if let (Some(k), Some(v)) = (pair.key.as_deref(), pair.value) {
                 match k {
                     "location" => location = Some(v),
-                    "offset" => offset = Some(v.parse()?),
+                    "offset" => offset = v.parse()?,
                     "length" => length = Some(v.parse()?),
                     _ => {}
                 }
             }
         }
 
-        let location = location.ok_or(Error::MissingField("external data location"))?;
+        let location = location
+            .filter(|l| !l.is_empty())
+            .ok_or(Error::MissingField("external data location"))?;
 
         Ok(ExternalDataInfo {
             location,
@@ -45,18 +47,18 @@ impl ExternalDataInfo {
         })
     }
 
-    pub fn load_data(&self) -> Result<Bytes, Error> {
+    pub(crate) fn load_data(&self) -> Result<Bytes, Error> {
         self.loader.load_data(self)
     }
 }
 
-pub struct ExternalDataLoader {
+pub(crate) struct ExternalDataLoader {
     model_dir: PathBuf,
     cache: RwLock<HashMap<String, Bytes>>,
 }
 
 impl ExternalDataLoader {
-    pub fn new(model_dir: PathBuf) -> Self {
+    pub(crate) fn new(model_dir: PathBuf) -> Self {
         ExternalDataLoader {
             model_dir,
             cache: RwLock::new(HashMap::new()),
@@ -96,7 +98,7 @@ impl ExternalDataLoader {
 
     fn slice_data(data: &Bytes, info: &ExternalDataInfo) -> Result<Bytes, Error> {
         let file_size = data.len() as u64;
-        let start = info.offset.unwrap_or(0);
+        let start = info.offset;
         let end = info
             .length
             .map_or(file_size, |len| start.saturating_add(len));

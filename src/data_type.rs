@@ -6,10 +6,15 @@ impl DataType {
         Self::try_from(data_type).unwrap_or(Self::Undefined)
     }
 
-    /// Get the storage size in bytes for numeric types.
+    /// Get the minimum storage size in bytes required to hold a single element.
+    ///
+    /// Sub-byte packed types (`Uint4`, `Int4`, `Float4e2m1`, `Uint2`, `Int2`) return `Some(1)`,
+    /// representing the minimum byte container per standalone element (note that in ONNX tensor
+    /// buffers, multiple sub-byte elements are packed into each byte).
     ///
     /// Returns `None` for dynamically-sized or undefined types (`String` and `Undefined`).
-    pub fn size_in_bytes(self) -> Option<usize> {
+    #[must_use]
+    pub const fn size_in_bytes(self) -> Option<usize> {
         match self {
             DataType::Complex128 => Some(16),
             DataType::Double | DataType::Int64 | DataType::Uint64 | DataType::Complex64 => Some(8),
@@ -33,7 +38,8 @@ impl DataType {
     }
 
     /// Check if this is a floating-point type
-    pub fn is_float(self) -> bool {
+    #[must_use]
+    pub const fn is_float(self) -> bool {
         matches!(
             self,
             DataType::Float16
@@ -50,7 +56,8 @@ impl DataType {
     }
 
     /// Check if this is an integer type
-    pub fn is_integer(self) -> bool {
+    #[must_use]
+    pub const fn is_integer(self) -> bool {
         matches!(
             self,
             DataType::Int8

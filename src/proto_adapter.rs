@@ -8,7 +8,7 @@ use crate::{
 use std::collections::hash_map::{Entry, HashMap};
 use std::sync::Arc;
 
-/// Create Tensor from ONNX TensorProto
+/// Create `Tensor` from ONNX `TensorProto`
 pub(crate) fn tensor_from_proto(
     tensor: TensorProto,
     external_data_loader: Option<&Arc<ExternalDataLoader>>,
@@ -21,7 +21,7 @@ pub(crate) fn tensor_from_proto(
         let loader = external_data_loader.ok_or(Error::ExternalDataRequiresPath)?;
         let external_info =
             ExternalDataInfo::from_key_value_pairs(tensor.external_data, loader.clone())?;
-        TensorDataLocation::External(external_info)
+        TensorDataLocation::External(Box::new(external_info))
     } else if let Some(raw) = tensor.raw_data {
         // Keep raw_data as a Bytes reference (mmap-backed when loaded from file)
         TensorDataLocation::Mmap(raw)
@@ -58,14 +58,15 @@ pub(crate) fn tensor_from_proto(
 }
 
 fn tensor_from_value_info(name: Option<String>, vi_type: Option<TypeProto>) -> Option<Tensor> {
-    let Some(type_proto::Value::TensorType(tensor_type)) = vi_type.and_then(|t| t.value) else {
+    let Some(type_proto::Value::TensorType(tensor_type)) = vi_type?.value else {
         return None;
     };
 
     let shape = tensor_type
         .shape
-        .iter()
-        .flat_map(|s| &s.dim)
+        .unwrap_or_default()
+        .dim
+        .into_iter()
         .map(|d| match d.value {
             Some(Value::DimValue(v)) => v,
             _ => -1,
@@ -82,7 +83,7 @@ fn tensor_from_value_info(name: Option<String>, vi_type: Option<TypeProto>) -> O
     ))
 }
 
-/// Create Graph from ONNX GraphProto
+/// Create `Graph` from ONNX `GraphProto`
 pub(crate) fn graph_from_proto(
     graph: GraphProto,
     external_data_loader: Option<&Arc<ExternalDataLoader>>,
@@ -153,7 +154,7 @@ pub(crate) fn graph_from_proto(
     Ok(Graph::new(graph.name, tensors, operations, inputs, outputs))
 }
 
-/// Create Operation from ONNX NodeProto
+/// Create `Operation` from ONNX `NodeProto`
 pub(crate) fn operation_from_node_proto(
     node: NodeProto,
     external_data_loader: Option<&Arc<ExternalDataLoader>>,
@@ -178,7 +179,7 @@ pub(crate) fn operation_from_node_proto(
     ))
 }
 
-/// Parse ONNX attribute into a (name, AttributeValue) pair
+/// Parse ONNX attribute into a `(name, AttributeValue)` pair
 ///
 /// Strings and string arrays are stored as `prost::bytes::Bytes` to avoid
 /// mandatory UTF-8 validation during parsing. This allows zero-copy moves from

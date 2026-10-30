@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{AttributeValue, Error, Operation, Tensor};
 
@@ -30,6 +30,7 @@ impl Graph {
     }
 
     /// Reference to all tensors in this graph
+    #[must_use]
     pub fn tensors(&self) -> &HashMap<String, Tensor> {
         &self.tensors
     }
@@ -42,6 +43,7 @@ impl Graph {
     }
 
     /// Get all operations in the graph
+    #[must_use]
     pub fn operations(&self) -> &[Operation] {
         &self.operations
     }
@@ -54,16 +56,19 @@ impl Graph {
     }
 
     /// Get names of graph inputs
+    #[must_use]
     pub fn inputs(&self) -> &[String] {
         &self.inputs
     }
 
     /// Get names of graph outputs
+    #[must_use]
     pub fn outputs(&self) -> &[String] {
         &self.outputs
     }
 
     /// Get graph name, if specified
+    #[must_use]
     pub fn graph_name(&self) -> Option<&str> {
         self.name.as_deref()
     }
@@ -76,16 +81,19 @@ impl Graph {
     }
 
     /// Get operation by name in this graph
+    #[must_use]
     pub fn get_operation(&self, name: &str) -> Option<&Operation> {
         self.operations.iter().find(|op| op.name() == Some(name))
     }
 
     /// Get all operation types in this graph
+    #[must_use]
     pub fn operation_types(&self) -> HashSet<&str> {
         self.operations.iter().map(Operation::op_type).collect()
     }
 
     /// Count operations by type in this graph
+    #[must_use]
     pub fn count_operations_by_type(&self) -> HashMap<&str, usize> {
         let mut counts = HashMap::new();
         for op in &self.operations {
@@ -115,8 +123,7 @@ impl Graph {
     ///
     /// The returned vector contains references into `self.operations` and
     /// represents an order such that producers appear before their consumers.
-    /// Operations are processed in the order they become available with no
-    /// additional prioritisation.
+    /// Operations are processed in FIFO order to preserve the graph's natural node ordering.
     ///
     /// If the graph contains cycles or there are unresolved dependencies,
     /// the function returns an [`Error::InvalidGraph`].
@@ -124,33 +131,32 @@ impl Graph {
         let op_count = self.operations.len();
 
         // map tensor name -> producer op index
-        let producer: HashMap<&str, usize> = self
-            .operations
-            .iter()
-            .enumerate()
-            .flat_map(|(idx, op)| {
-                op.outputs()
-                    .iter()
-                    .filter(|s| !s.is_empty())
-                    .map(move |s| (s.as_str(), idx))
-            })
-            .collect();
+        let mut producer = HashMap::with_capacity(op_count);
+        for (idx, op) in self.operations.iter().enumerate() {
+            for output in op.outputs() {
+                if !output.is_empty() {
+                    producer.insert(output.as_str(), idx);
+                }
+            }
+        }
 
         // build consumer lists and in-degree counts
         let mut consumers = vec![Vec::new(); op_count];
         let mut indegree = vec![0; op_count];
 
         for (idx, op) in self.operations.iter().enumerate() {
-            for input in op.inputs().iter().filter(|s| !s.is_empty()) {
-                if let Some(&prod_idx) = producer.get(input.as_str()) {
+            for input in op.inputs() {
+                if !input.is_empty()
+                    && let Some(&prod_idx) = producer.get(input.as_str())
+                {
                     indegree[idx] += 1;
                     consumers[prod_idx].push(idx);
                 }
             }
         }
 
-        // start with ops that have indegree 0
-        let mut stack: Vec<usize> = indegree
+        // start with ops that have indegree 0 in FIFO order
+        let mut queue: VecDeque<usize> = indegree
             .iter()
             .enumerate()
             .filter_map(|(idx, &d)| (d == 0).then_some(idx))
@@ -158,12 +164,12 @@ impl Graph {
 
         let mut ordered = Vec::with_capacity(op_count);
 
-        while let Some(idx) = stack.pop() {
+        while let Some(idx) = queue.pop_front() {
             ordered.push(&self.operations[idx]);
             for &cidx in &consumers[idx] {
                 indegree[cidx] -= 1;
                 if indegree[cidx] == 0 {
-                    stack.push(cidx);
+                    queue.push_back(cidx);
                 }
             }
         }
@@ -234,8 +240,7 @@ impl Graph {
             )?;
 
             if !op.attributes().is_empty() {
-                let attr_keys: Box<[&str]> = op.attributes().keys().map(String::as_str).collect();
-                writeln!(f, "{indent}    Attributes: {attr_keys:?}")?;
+                writeln!(f, "{indent}    Attributes: {:?}", op.attributes().keys())?;
 
                 for (attr_name, attr_val) in op.attributes() {
                     match attr_val {

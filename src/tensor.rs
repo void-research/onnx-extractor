@@ -1,12 +1,11 @@
 use prost::bytes::Bytes;
-use std::{mem, slice};
+use std::{fmt, mem, slice};
 
 use crate::{DataType, Error, external_data::ExternalDataInfo};
 
-#[derive(Debug)]
 pub(crate) enum TensorDataLocation {
     None,
-    External(ExternalDataInfo),
+    External(Box<ExternalDataInfo>),
     Mmap(Bytes),
     MmapStrings(Vec<Bytes>),
     F32(Vec<f32>),
@@ -16,8 +15,23 @@ pub(crate) enum TensorDataLocation {
     I32(Vec<i32>),
 }
 
+impl fmt::Debug for TensorDataLocation {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TensorDataLocation::None => f.write_str("None"),
+            TensorDataLocation::External(info) => f.debug_tuple("External").field(info).finish(),
+            TensorDataLocation::Mmap(b) => write!(f, "Mmap({} bytes)", b.len()),
+            TensorDataLocation::MmapStrings(s) => write!(f, "MmapStrings({} elements)", s.len()),
+            TensorDataLocation::F32(v) => write!(f, "F32({} elements)", v.len()),
+            TensorDataLocation::F64(v) => write!(f, "F64({} elements)", v.len()),
+            TensorDataLocation::I64(v) => write!(f, "I64({} elements)", v.len()),
+            TensorDataLocation::U64(v) => write!(f, "U64({} elements)", v.len()),
+            TensorDataLocation::I32(v) => write!(f, "I32({} elements)", v.len()),
+        }
+    }
+}
+
 /// Zero-copy tensor data reference
-#[derive(Debug, Clone)]
 pub enum TensorDataRef<'a> {
     Raw(Bytes),
     Strings(&'a [Bytes]),
@@ -33,6 +47,7 @@ impl<'a> TensorDataRef<'a> {
     ///
     /// For `Strings`, returns the sum of all string element byte lengths.
     /// If all `Strings` are empty, returns 0.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             TensorDataRef::Raw(b) => b.len(),
@@ -49,6 +64,7 @@ impl<'a> TensorDataRef<'a> {
     ///
     /// For `Raw` and numeric variants, equivalent to `len() == 0`.
     /// For `Strings`, checks if the slice of string elements is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             TensorDataRef::Raw(b) => b.is_empty(),
@@ -65,6 +81,7 @@ impl<'a> TensorDataRef<'a> {
     ///
     /// Raw and numeric variants borrow directly.
     /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
+    #[must_use]
     pub fn as_slice(&self) -> Option<&[u8]> {
         match self {
             TensorDataRef::Raw(b) => Some(b),
@@ -78,6 +95,7 @@ impl<'a> TensorDataRef<'a> {
     }
 
     /// Access the string elements if the variant is `Strings`. Returns `None` otherwise.
+    #[must_use]
     pub fn strings(&self) -> Option<&'a [Bytes]> {
         match self {
             TensorDataRef::Strings(v) => Some(v),
@@ -86,8 +104,21 @@ impl<'a> TensorDataRef<'a> {
     }
 }
 
+impl fmt::Debug for TensorDataRef<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TensorDataRef::Raw(b) => write!(f, "Raw({} bytes)", b.len()),
+            TensorDataRef::Strings(s) => write!(f, "Strings({} elements)", s.len()),
+            TensorDataRef::F32(v) => write!(f, "F32({} elements)", v.len()),
+            TensorDataRef::F64(v) => write!(f, "F64({} elements)", v.len()),
+            TensorDataRef::I32(v) => write!(f, "I32({} elements)", v.len()),
+            TensorDataRef::I64(v) => write!(f, "I64({} elements)", v.len()),
+            TensorDataRef::U64(v) => write!(f, "U64({} elements)", v.len()),
+        }
+    }
+}
+
 /// Zero-copy owned tensor data
-#[derive(Debug, Clone)]
 pub enum TensorData {
     Raw(Bytes),
     Strings(Vec<Bytes>),
@@ -103,6 +134,7 @@ impl TensorData {
     ///
     /// For `Strings`, returns the sum of all string element byte lengths.
     /// If all `Strings` are empty, returns 0.
+    #[must_use]
     pub fn len(&self) -> usize {
         match self {
             TensorData::Raw(b) => b.len(),
@@ -119,6 +151,7 @@ impl TensorData {
     ///
     /// For `Raw` and numeric variants, equivalent to `len() == 0`.
     /// For `Strings`, checks if the vector of string elements is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         match self {
             TensorData::Raw(b) => b.is_empty(),
@@ -135,6 +168,7 @@ impl TensorData {
     ///
     /// Raw and numeric variants borrow directly.
     /// Returns `None` for the `Strings` variant as string arrays are not contiguous byte buffers.
+    #[must_use]
     pub fn as_slice(&self) -> Option<&[u8]> {
         match self {
             TensorData::Raw(b) => Some(b),
@@ -148,10 +182,25 @@ impl TensorData {
     }
 
     /// Access the string elements if the variant is `Strings`. Returns `None` otherwise.
+    #[must_use]
     pub fn strings(&self) -> Option<&[Bytes]> {
         match self {
             TensorData::Strings(v) => Some(v),
             _ => None,
+        }
+    }
+}
+
+impl fmt::Debug for TensorData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TensorData::Raw(b) => write!(f, "Raw({} bytes)", b.len()),
+            TensorData::Strings(s) => write!(f, "Strings({} elements)", s.len()),
+            TensorData::F32(v) => write!(f, "F32({} elements)", v.len()),
+            TensorData::F64(v) => write!(f, "F64({} elements)", v.len()),
+            TensorData::I32(v) => write!(f, "I32({} elements)", v.len()),
+            TensorData::I64(v) => write!(f, "I64({} elements)", v.len()),
+            TensorData::U64(v) => write!(f, "U64({} elements)", v.len()),
         }
     }
 }
@@ -181,16 +230,19 @@ impl Tensor {
     }
 
     /// Tensor name
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         self.name.as_deref()
     }
 
     /// Tensor shape dimensions
+    #[must_use]
     pub fn shape(&self) -> &[i64] {
         &self.shape
     }
 
     /// Tensor data type
+    #[must_use]
     pub fn data_type(&self) -> DataType {
         self.data_type
     }
@@ -198,6 +250,7 @@ impl Tensor {
     /// Returns true if this tensor contains data.
     ///
     /// This check does not trigger loading or memory-mapping of external files.
+    #[must_use]
     pub fn has_data(&self) -> bool {
         !matches!(self.data, TensorDataLocation::None)
     }

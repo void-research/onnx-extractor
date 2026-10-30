@@ -19,6 +19,7 @@ pub enum AttributeValue {
 
 impl AttributeValue {
     /// Get string value as raw bytes without UTF-8 validation.
+    #[must_use]
     pub fn as_string(&self) -> Option<&Bytes> {
         match self {
             AttributeValue::String(s) => Some(s),
@@ -38,6 +39,7 @@ impl AttributeValue {
     }
 
     /// Extract string value as owned `Bytes`.
+    #[must_use]
     pub fn into_string(self) -> Option<Bytes> {
         match self {
             AttributeValue::String(s) => Some(s),
@@ -46,6 +48,7 @@ impl AttributeValue {
     }
 
     /// Get string array value as raw bytes without UTF-8 validation.
+    #[must_use]
     pub fn as_strings(&self) -> Option<&[Bytes]> {
         match self {
             AttributeValue::Strings(s) => Some(s),
@@ -69,6 +72,7 @@ impl AttributeValue {
     }
 
     /// Extract string array value as owned `Vec<Bytes>`.
+    #[must_use]
     pub fn into_strings(self) -> Option<Vec<Bytes>> {
         match self {
             AttributeValue::Strings(s) => Some(s),
@@ -77,6 +81,7 @@ impl AttributeValue {
     }
 
     /// Get float value if the variant is `Float`.
+    #[must_use]
     pub fn as_float(&self) -> Option<f32> {
         match self {
             AttributeValue::Float(f) => Some(*f),
@@ -85,6 +90,7 @@ impl AttributeValue {
     }
 
     /// Get integer value if the variant is `Int`.
+    #[must_use]
     pub fn as_int(&self) -> Option<i64> {
         match self {
             AttributeValue::Int(i) => Some(*i),
@@ -93,6 +99,7 @@ impl AttributeValue {
     }
 
     /// Borrow float slice if the variant is `Floats`.
+    #[must_use]
     pub fn as_floats(&self) -> Option<&[f32]> {
         match self {
             AttributeValue::Floats(f) => Some(f),
@@ -101,6 +108,7 @@ impl AttributeValue {
     }
 
     /// Extract float vector as owned `Vec<f32>` if the variant is `Floats`.
+    #[must_use]
     pub fn into_floats(self) -> Option<Vec<f32>> {
         match self {
             AttributeValue::Floats(f) => Some(f),
@@ -109,6 +117,7 @@ impl AttributeValue {
     }
 
     /// Borrow integer slice if the variant is `Ints`.
+    #[must_use]
     pub fn as_ints(&self) -> Option<&[i64]> {
         match self {
             AttributeValue::Ints(i) => Some(i),
@@ -117,6 +126,7 @@ impl AttributeValue {
     }
 
     /// Extract integer vector as owned `Vec<i64>` if the variant is `Ints`.
+    #[must_use]
     pub fn into_ints(self) -> Option<Vec<i64>> {
         match self {
             AttributeValue::Ints(i) => Some(i),
@@ -125,6 +135,7 @@ impl AttributeValue {
     }
 
     /// Borrow tensor if the variant is `Tensor`.
+    #[must_use]
     pub fn as_tensor(&self) -> Option<&Tensor> {
         match self {
             AttributeValue::Tensor(t) => Some(t),
@@ -133,6 +144,7 @@ impl AttributeValue {
     }
 
     /// Extract tensor as owned `Tensor` if the variant is `Tensor`.
+    #[must_use]
     pub fn into_tensor(self) -> Option<Tensor> {
         match self {
             AttributeValue::Tensor(t) => Some(*t),
@@ -141,6 +153,7 @@ impl AttributeValue {
     }
 
     /// Borrow subgraph if the variant is `Graph`.
+    #[must_use]
     pub fn as_graph(&self) -> Option<&Graph> {
         match self {
             AttributeValue::Graph(g) => Some(g),
@@ -149,6 +162,7 @@ impl AttributeValue {
     }
 
     /// Extract subgraph as owned `Graph` if the variant is `Graph`.
+    #[must_use]
     pub fn into_graph(self) -> Option<Graph> {
         match self {
             AttributeValue::Graph(g) => Some(*g),
@@ -157,6 +171,7 @@ impl AttributeValue {
     }
 
     /// Borrow tensor slice if the variant is `Tensors`.
+    #[must_use]
     pub fn as_tensors(&self) -> Option<&[Tensor]> {
         match self {
             AttributeValue::Tensors(t) => Some(t),
@@ -165,6 +180,7 @@ impl AttributeValue {
     }
 
     /// Extract tensor slice as owned `Box<[Tensor]>` if the variant is `Tensors`.
+    #[must_use]
     pub fn into_tensors(self) -> Option<Box<[Tensor]>> {
         match self {
             AttributeValue::Tensors(t) => Some(t),
@@ -173,6 +189,7 @@ impl AttributeValue {
     }
 
     /// Borrow subgraph slice if the variant is `Graphs`.
+    #[must_use]
     pub fn as_graphs(&self) -> Option<&[Graph]> {
         match self {
             AttributeValue::Graphs(g) => Some(g),
@@ -181,6 +198,7 @@ impl AttributeValue {
     }
 
     /// Extract subgraph slice as owned `Box<[Graph]>` if the variant is `Graphs`.
+    #[must_use]
     pub fn into_graphs(self) -> Option<Box<[Graph]>> {
         match self {
             AttributeValue::Graphs(g) => Some(g),
