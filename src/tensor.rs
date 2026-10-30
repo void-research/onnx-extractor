@@ -259,6 +259,12 @@ impl Tensor {
     ///
     /// - All variants are returned without copying the underlying tensor data.
     /// - External data is loaded from disk if not already in memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MissingField`] if the tensor has no data, or [`Error::Io`] /
+    /// [`Error::ExternalDataOutOfBounds`] / [`Error::ExternalDataLockPoisoned`] if loading
+    /// external data fails.
     pub fn data(&self) -> Result<TensorDataRef<'_>, Error> {
         match &self.data {
             TensorDataLocation::External(external_info) => {
@@ -279,6 +285,12 @@ impl Tensor {
     ///
     /// - All variants are returned without copying the underlying tensor data.
     /// - External data is loaded from disk if not already in memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MissingField`] if the tensor has no data, or [`Error::Io`] /
+    /// [`Error::ExternalDataOutOfBounds`] / [`Error::ExternalDataLockPoisoned`] if loading
+    /// external data fails.
     pub fn into_data(self) -> Result<TensorData, Error> {
         match self.data {
             TensorDataLocation::External(external_info) => {

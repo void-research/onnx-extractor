@@ -27,6 +27,12 @@ impl Model {
     /// Load ONNX model from a file path using memory mapping (`mmap`).
     ///
     /// The parent directory of `path` is used to resolve external data files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Io`] if opening or memory-mapping `path` fails, [`Error::Decode`] if
+    /// protobuf decoding fails, or [`Error::MissingField`] / [`Error::ParseInt`] /
+    /// [`Error::UnsupportedAttributeType`] if required model metadata or attributes are invalid.
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let path = path.as_ref();
         let file = File::open(path)?;
@@ -46,6 +52,12 @@ impl Model {
     /// Load ONNX model from byte buffer (e.g., `Vec<u8>`, `Bytes`, `&'static [u8]`).
     ///
     /// Use [`Model::load_from_bytes_with_path`] if the model references external data files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Decode`] if protobuf decoding fails, [`Error::ExternalDataRequiresPath`]
+    /// if the model references external tensor files, or [`Error::MissingField`] /
+    /// [`Error::ParseInt`] / [`Error::UnsupportedAttributeType`] if model fields are invalid.
     pub fn load_from_bytes(data: impl Into<Bytes>) -> Result<Self, Error> {
         Self::load_from_bytes_with_dir(data.into(), None)
     }
@@ -55,6 +67,11 @@ impl Model {
     ///
     /// Note: `path` must be the folder/directory containing the external data files, not a file path.
     /// Use [`Model::load_from_bytes`] if the model contains no external data files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Decode`] if protobuf decoding fails, or [`Error::MissingField`] /
+    /// [`Error::ParseInt`] / [`Error::UnsupportedAttributeType`] if model fields are invalid.
     pub fn load_from_bytes_with_path<P: AsRef<Path>>(
         data: impl Into<Bytes>,
         path: P,

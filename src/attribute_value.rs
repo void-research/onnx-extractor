@@ -29,8 +29,12 @@ impl AttributeValue {
 
     /// Get string value as a validated UTF-8 `&str`.
     ///
-    /// Returns `Err` if the variant is not `String` or if the bytes are not valid UTF-8.
     /// The returned `&str` borrows directly from the underlying buffer with no copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MissingField`] if the variant is not `String`, or [`Error::Utf8`]
+    /// if the bytes are not valid UTF-8.
     pub fn as_string_validated(&self) -> Result<&str, Error> {
         match self {
             AttributeValue::String(s) => Ok(std::str::from_utf8(s)?),
@@ -58,9 +62,13 @@ impl AttributeValue {
 
     /// Get string array value as validated `&str` entries.
     ///
-    /// Returns `Err` if the variant is not `Strings` or if any entry is not valid UTF-8.
     /// Each `&str` borrows directly from the underlying buffer with no copy,
     /// but the returned `Box<[&str]>` is a new allocation for the pointer array.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MissingField`] if the variant is not `Strings`, or [`Error::Utf8`]
+    /// if any entry is not valid UTF-8.
     pub fn as_strings_validated(&self) -> Result<Box<[&str]>, Error> {
         match self {
             AttributeValue::Strings(strings) => strings

@@ -125,6 +125,8 @@ impl Graph {
     /// represents an order such that producers appear before their consumers.
     /// Operations are processed in FIFO order to preserve the graph's natural node ordering.
     ///
+    /// # Errors
+    ///
     /// If the graph contains cycles or there are unresolved dependencies,
     /// the function returns an [`Error::InvalidGraph`].
     pub fn topological_order(&self) -> Result<Vec<&Operation>, Error> {
